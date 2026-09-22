@@ -1,0 +1,61 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role, preferences, and progress.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "format": "email", "maxLength": 256 },
+        "displayName": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "enum": ["admin", "educator", "member"] },
+        "createdAt": { "type": "string" },
+        "lastLoginAt": { "type": "string" },
+        "userType": { "type": "string", "enum": ["student", "individual", "senior", "educator"] },
+        "completedChecklistIds": { "type": "array" },
+        "savedThreatIds": { "type": "array" }
+      },
+      "required": ["uid", "email", "displayName", "role", "createdAt"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Whitelisted administrator record",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "format": "email", "maxLength": 256 },
+        "role": { "type": "string", "enum": ["admin"] },
+        "assignedAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "UserQuizRecord": {
+      "title": "UserQuizRecord",
+      "description": "User quiz assessment result",
+      "type": "object",
+      "properties": {
+        "quizId": { "type": "string", "maxLength": 128 },
+        "quizTitle": { "type": "string", "maxLength": 200 },
+        "score": { "type": "number" },
+        "total": { "type": "number" },
+        "completedAt": { "type": "string" },
+        "userId": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["quizId", "score", "total", "completedAt", "userId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents stored by user UID"
+    },
+    "/admins/{adminId}": {
+      "schema": "Admin",
+      "description": "Whitelisted platform administrators"
+    },
+    "/users/{userId}/quizRecords/{recordId}": {
+      "schema": "UserQuizRecord",
+      "description": "Quiz assessment attempts completed by the user"
+    }
+  }
+}

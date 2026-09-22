@@ -1,0 +1,6 @@
+{
+  "name": "CyberSafe",
+  "description": "Cyber Safety Awareness and Cybercrime Prevention Platform - An academic community digital safety guide, threat detector, and incident reporting resource for everyday users.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
