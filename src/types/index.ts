@@ -64,6 +64,8 @@ export interface ThreatItem {
   realExample: string;
   actionSteps: string[];
   preventionTips: string[];
+  status?: 'published' | 'draft';
+  updatedAt?: string;
   frameworkMappings?: {
     nistCsf?: string; // e.g., 'PR.AC - Identity Management & Access Control'
     cisControl?: string; // e.g., 'CIS Control 6: Access Control Management'
@@ -82,6 +84,7 @@ export interface SafetyBasic {
   checklist: string[];
   commonPitfall: string;
   quickStat: string;
+  status?: 'published' | 'draft';
   difficulty?: 'beginner' | 'intermediate' | 'advanced';
 }
 
@@ -91,6 +94,9 @@ export interface SecurityMethodologyGuide {
   standard: 'NIST CSF 2.0' | 'CIS Controls v8' | 'Zero Trust for Citizens' | 'Digital Hygiene Lifecycle';
   summary: string;
   targetAudience: string;
+  category?: string;
+  status?: 'published' | 'draft';
+  updatedAt?: string;
   phases: {
     phaseName: string;
     description: string;
@@ -98,12 +104,130 @@ export interface SecurityMethodologyGuide {
   }[];
 }
 
+export type ResourceType = 'all' | 'deep-guide' | 'quick-guide' | 'methodology' | 'scenario' | 'checklist';
+
+export interface PracticalMethodology {
+  id: string;
+  title: string;
+  acronym: string;
+  shortTagline: string;
+  category: string;
+  whenToUse: string;
+  steps: {
+    stepLabel: string;
+    actionTitle: string;
+    description: string;
+    practicalExample: string;
+    pitfallToAvoid: string;
+  }[];
+  whyItWorks: string;
+  relatedThreatIds: string[];
+}
+
+export interface AttackScenario {
+  id: string;
+  title: string;
+  threatCategory: string;
+  attackerPretext: string;
+  victimPerspective: string;
+  redFlagsPresent: string[];
+  psychologicalTrigger: string;
+  whatVictimShouldDo: string[];
+  takeaway: string;
+  relatedThreatId: string;
+}
+
 // ==========================================
 // WORKSTREAM 5: PREVENTION & PERSONALIZED GUIDANCE
 // ==========================================
+export type PreventionAreaId =
+  | 'passwords'
+  | 'mfa'
+  | 'account-recovery'
+  | 'device-security'
+  | 'software-updates'
+  | 'safe-browsing'
+  | 'email-safety'
+  | 'social-media'
+  | 'public-wifi'
+  | 'online-shopping'
+  | 'financial-safety'
+  | 'privacy'
+  | 'scam-prevention'
+  | 'pii-protection';
+
+export type PreventionCategory =
+  | 'accounts'
+  | 'devices'
+  | 'network'
+  | 'privacy'
+  | 'financial'
+  | 'communications'
+  | 'social'
+  | 'scams';
+
+export interface PreventionMethodology {
+  id: string;
+  areaId: PreventionAreaId;
+  title: string;
+  category: PreventionCategory;
+  tagline: string;
+  iconName: string;
+  // Core 4 questions
+  whatShouldIDo: string;
+  howShouldIDoIt: string;
+  whenShouldIDoIt: string;
+  whyDoesItMatter: string;
+  // 1. Risk
+  risk: {
+    summary: string;
+    threatActors: string[];
+    potentialImpact: string;
+    realWorldScenario: string;
+  };
+  // 2. Why it matters
+  whyItMattersDetail: string[];
+  // 3. Recommended practice
+  recommendedPractice: {
+    headline: string;
+    goldenRule: string;
+    standardsReference?: string;
+  };
+  // 4. Step-by-step method
+  stepByStepMethod: {
+    stepNumber: number;
+    title: string;
+    timing: string;
+    description: string;
+    actionableDetail: string;
+    proTip?: string;
+  }[];
+  // 5. Common mistakes
+  commonMistakes: {
+    mistake: string;
+    whyItsDangerous: string;
+    betterAlternative: string;
+  }[];
+  // 6. Quick checklist
+  quickChecklist: {
+    id: string;
+    itemText: string;
+    priority: 'essential' | 'recommended' | 'advanced';
+  }[];
+  // 7. What to do if something goes wrong
+  whatToDoIfSomethingGoesWrong: {
+    immediateActions: string[];
+    containmentSteps: string[];
+    recoverySteps: string[];
+    emergencyContactOrHelpline?: string;
+  };
+  relatedChecklistIds: string[];
+}
+
 export interface ChecklistItem {
   id: string;
-  category: 'accounts' | 'devices' | 'network' | 'privacy';
+  category: PreventionCategory;
+  areaId?: PreventionAreaId;
   title: string;
   description: string;
   impact: 'essential' | 'recommended' | 'advanced';
@@ -127,10 +251,19 @@ export interface PersonaSafetyRecommendation {
 // ==========================================
 export interface UrlIndicator {
   name: string;
+  category?: 'protocol' | 'host' | 'path' | 'query' | 'syntax' | 'general';
   status: 'positive' | 'warning' | 'risk';
   description: string;
+  whyItMatters: string;
   impactPoints: number;
   iconType: 'check' | 'alert' | 'danger';
+}
+
+export interface UrlScoreBreakdownItem {
+  indicatorName: string;
+  category: 'protocol' | 'host' | 'path' | 'query' | 'syntax' | 'general';
+  points: number;
+  reason: string;
 }
 
 export interface UrlScanAssessment {
@@ -138,23 +271,39 @@ export interface UrlScanAssessment {
   isValid: boolean;
   protocol: string;
   hostname: string;
+  port?: string;
   pathname: string;
+  search?: string;
   isHttps: boolean;
   isIpAddress: boolean;
+  ipType?: 'ipv4' | 'ipv6';
   hasAtSymbol: boolean;
   subdomainCount: number;
+  subdomains: string[];
+  registeredDomain: string;
   isPunycode: boolean;
+  punycodeDetails?: string;
   hasSuspiciousKeywords: boolean;
   suspiciousKeywordsFound: string[];
   hasExcessiveParams: boolean;
+  paramCount: number;
+  hasOpenRedirectParam: boolean;
   hasSuspiciousEncoding: boolean;
+  encodedSequencesCount: number;
+  suspiciousCharacters: string[];
+  hasUnusualPort: boolean;
+  hasDangerousExtension: boolean;
+  dangerousExtension?: string;
   urlLength: number;
   hostnameLength: number;
   riskScore: number; // 0 - 100
   riskLevel: 'Low Risk' | 'Medium Risk' | 'High Risk';
+  scoreBreakdown: UrlScoreBreakdownItem[];
   indicators: UrlIndicator[];
   explanation: string;
   recommendations: string[];
+  limitations: string[];
+  redirectNotice: string;
   errorMessage?: string;
   scannedAt?: string;
 }
@@ -173,21 +322,92 @@ export interface SmishingMessageAssessment {
 // ==========================================
 // WORKSTREAM 7: REPORTING & EMERGENCY HELPER
 // ==========================================
+export interface OfficialReportingRoute {
+  name: string;
+  description: string;
+  url?: string;
+  helpline?: string;
+  isOfficialGov?: boolean;
+  notes?: string;
+}
+
 export interface CybercrimeCategory {
   id: string;
   title: string;
   iconName: string;
   tagline: string;
-  whatHappened: string[];
+  // Core 5 required facets
+  immediateActions: string[];
   evidenceToPreserve: string[];
-  immediateSafetySteps: string[];
-  whereToReport: {
-    name: string;
+  accountProtectionSteps: string[];
+  relevantOfficialReportingRoute: OfficialReportingRoute[];
+  warningsWhatNotToDo: string[];
+  // Supplementary fields for educational context
+  whatHappened?: string[];
+  immediateSafetySteps?: string[]; // for backwards compatibility
+  whereToReport?: OfficialReportingRoute[]; // for backwards compatibility
+}
+
+export type EmergencySituationId =
+  | 'money-stolen'
+  | 'account-hacked'
+  | 'shared-otp'
+  | 'clicked-suspicious-link'
+  | 'installed-suspicious-app'
+  | 'someone-impersonating-me'
+  | 'harassed-online'
+  | 'shared-personal-info';
+
+export interface EmergencyContactItem {
+  label: string;
+  role: string;
+  method: 'phone' | 'portal' | 'in-app' | 'action';
+  value?: string;
+  detail: string;
+  isOfficialGov?: boolean;
+}
+
+export interface EmergencySituation {
+  id: EmergencySituationId;
+  title: string;
+  shortTag: string;
+  iconName: string;
+  urgency: 'critical' | 'high' | 'urgent';
+  summary: string;
+  calmNotice: string;
+  relatedCategoryId: string;
+  // The mandatory 6-step emergency response flow:
+  step1Immediate: {
+    title: string;
     description: string;
-    url?: string;
-    helpline?: string;
-    isOfficialGov?: boolean;
-  }[];
+    bullets: string[];
+    criticalActionCallout?: string;
+  };
+  step2Secure: {
+    title: string;
+    description: string;
+    bullets: string[];
+  };
+  step3Evidence: {
+    title: string;
+    description: string;
+    bullets: string[];
+  };
+  step4Contact: {
+    title: string;
+    description: string;
+    contacts: EmergencyContactItem[];
+  };
+  step5Report: {
+    title: string;
+    description: string;
+    routes: OfficialReportingRoute[];
+  };
+  step6Avoid: {
+    title: string;
+    description: string;
+    bullets: string[];
+  };
 }
 
 export interface IncidentReportDraft {
@@ -210,6 +430,24 @@ export interface IncidentReportDraft {
 // ==========================================
 // WORKSTREAM 8: EXPANDED QUIZ SYSTEM
 // ==========================================
+export type QuizCategory =
+  | 'Phishing'
+  | 'Password Security'
+  | 'Account Security'
+  | 'Online Scams'
+  | 'Social Engineering'
+  | 'Financial Fraud'
+  | 'Privacy'
+  | 'Social Media Safety'
+  | 'Mobile Security'
+  | 'Safe Browsing'
+  | 'Malware Awareness'
+  | 'Identity Theft';
+
+export type QuizDifficulty = 'beginner' | 'intermediate' | 'advanced';
+
+export type QuizMode = 'quick' | 'category' | 'assessment' | 'scenario';
+
 export interface QuizOption {
   id: string;
   text: string;
@@ -220,13 +458,67 @@ export interface QuizOption {
 export interface QuizQuestion {
   id: number;
   title: string;
-  topic: string;
+  topic: string; // for backward compatibility with existing components
+  category: QuizCategory;
   scenario: string;
   question: string;
   options: QuizOption[];
+  correctAnswer?: string; // ID of the correct option (e.g., 'a', 'b', 'c', 'd')
+  explanation?: string; // Overall question explanation
   warningSigns: string[];
-  takeaway: string;
-  difficulty?: 'beginner' | 'intermediate' | 'advanced';
+  takeaway: string; // for backward compatibility
+  educationalTakeaway: string;
+  status?: 'published' | 'draft';
+  updatedAt?: string;
+  difficulty: QuizDifficulty;
+}
+
+export interface QuizCategoryMeta {
+  id: QuizCategory;
+  label: string;
+  description: string;
+  iconName: string;
+  color: string;
+  recommendedLearnTopic?: string;
+  recommendedPreventArea?: string;
+}
+
+export interface CategoryPerformanceResult {
+  category: QuizCategory;
+  totalQuestions: number;
+  correctCount: number;
+  incorrectCount: number;
+  percentage: number;
+  proficiency: 'proficient' | 'moderate' | 'needs-attention';
+}
+
+export interface AreaToImprove {
+  category: QuizCategory;
+  summary: string;
+  conceptToReview: string;
+  recommendedLearnTitle: string;
+  recommendedLearnPage: PageType;
+}
+
+export interface QuizAssessmentResult {
+  mode: QuizMode;
+  categorySelected?: QuizCategory | null;
+  totalQuestions: number;
+  correctCount: number;
+  incorrectCount: number;
+  scorePercentage: number;
+  awarenessScore: number; // e.g., 85/100 or 9/10
+  tier: {
+    label: string;
+    variant: 'safe' | 'info' | 'warning' | 'danger';
+    badgeText: string;
+    feedback: string;
+  };
+  categoryBreakdown: CategoryPerformanceResult[];
+  areasToImprove: AreaToImprove[];
+  userAnswers: Record<number, string>;
+  completedAt: string;
+  disclaimer: string;
 }
 
 export interface QuizModule {

@@ -65,7 +65,9 @@ function AppContent() {
         )}
 
         {currentPage === 'prevent' && (
-          <PreventPage />
+          <PreventPage
+            onNavigateToReport={() => navigateTo('report')}
+          />
         )}
 
         {currentPage === 'detect' && (
@@ -133,8 +135,8 @@ function AppContent() {
       <EmergencyModal
         isOpen={isEmergencyModalOpen}
         onClose={handleCloseEmergency}
-        onNavigateToReport={() => {
-          navigateTo('report');
+        onNavigateToReport={(scenarioOrCategoryId) => {
+          navigateTo('report', scenarioOrCategoryId);
         }}
       />
     </div>

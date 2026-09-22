@@ -75,5 +75,33 @@ service cloud.firestore {
       allow list: if isAdmin();
       allow create, update, delete: if isAdmin() && isValidId(adminId);
     }
+
+    // ==========================================
+    // EDUCATIONAL CONTENT COLLECTIONS (ADMIN MANAGED)
+    // ==========================================
+    
+    // Learning Resources (Threats)
+    match /content_threats/{threatId} {
+      allow read: if isValidId(threatId);
+      allow write: if isAdmin() && isValidId(threatId);
+    }
+
+    // Prevention Methodologies
+    match /content_preventions/{prevId} {
+      allow read: if isValidId(prevId);
+      allow write: if isAdmin() && isValidId(prevId);
+    }
+
+    // Educational Quiz Questions
+    match /content_quiz/{quizId} {
+      allow read: if isValidId(quizId);
+      allow write: if isAdmin() && isValidId(quizId);
+    }
+
+    // Emergency & Reporting Guidance
+    match /content_reporting/{resourceId} {
+      allow read: if isValidId(resourceId);
+      allow write: if isAdmin() && isValidId(resourceId);
+    }
   }
 }

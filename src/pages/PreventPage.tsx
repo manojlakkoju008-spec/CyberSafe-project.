@@ -1,480 +1,381 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  CheckSquare, 
   ShieldCheck, 
-  AlertCircle, 
-  Download, 
-  RotateCcw, 
-  ChevronDown, 
-  ChevronUp, 
-  Clock, 
-  Sparkles,
-  Info,
-  CheckCircle2,
-  SlidersHorizontal,
+  CheckSquare, 
+  Search, 
+  BookOpen, 
+  Sparkles, 
+  Filter, 
+  Info, 
   ArrowRight,
-  ShieldAlert
+  ShieldAlert,
+  Layers,
+  HelpCircle,
+  AlertTriangle
 } from 'lucide-react';
-import { ChecklistItem } from '../types';
+import { PreventionMethodology, PreventionAreaId } from '../types';
+import { PREVENTION_METHODOLOGIES } from '../data/preventMethodologies';
 import { CHECKLIST_ITEMS } from '../data/checklistData';
-import { Card } from '../components/common/Card';
-import { Badge } from '../components/common/Badge';
-import { Button } from '../components/common/Button';
+import { MethodologyCard } from '../components/prevent/MethodologyCard';
+import { MethodologyDetailModal } from '../components/prevent/MethodologyDetailModal';
+import { PersonalSafetyPlan } from '../components/prevent/PersonalSafetyPlan';
+import { useAuth } from '../context/AuthContext';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../services/firebase';
 
 const STORAGE_KEY = 'cybersafe_checklist_completed';
 
-export const PreventPage: React.FC = () => {
+interface PreventPageProps {
+  onNavigateToReport?: () => void;
+}
+
+export const PreventPage: React.FC<PreventPageProps> = ({ onNavigateToReport }) => {
+  const { user } = useAuth();
+
+  // Completed items state (backed by localStorage and optionally synced to Firestore user profile)
   const [completedIds, setCompletedIds] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : ['os-auto-updates', 'device-biometric-pin'];
+      if (saved) return JSON.parse(saved);
+      if (user?.completedChecklistIds && user.completedChecklistIds.length > 0) {
+        return user.completedChecklistIds;
+      }
+      return [
+        'os-auto-updates', 
+        'device-biometric-pin', 
+        'mfa-primary-email', 
+        'password-manager-unique-passwords'
+      ];
     } catch {
-      return ['os-auto-updates', 'device-biometric-pin'];
+      return ['os-auto-updates', 'device-biometric-pin', 'mfa-primary-email'];
     }
   });
 
-  const [activeCategory, setActiveCategory] = useState<string>('all');
-  const [filterPendingOnly, setFilterPendingOnly] = useState(false);
-  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  // Main View Mode: 'methodologies' | 'plan'
+  const [viewMode, setViewMode] = useState<'methodologies' | 'plan'>('methodologies');
 
-  // Save to local storage on change
+  // Search & Filtering for Methodologies
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
+  // Active selected methodology for the deep modal
+  const [selectedMethodology, setSelectedMethodology] = useState<PreventionMethodology | null>(null);
+
+  // Sync state to localStorage on change
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(completedIds));
     } catch (err) {
       console.warn('Unable to save checklist progress to localStorage', err);
     }
-  }, [completedIds]);
 
+    // If user is authenticated, sync to their Firestore profile
+    if (user?.uid) {
+      try {
+        const userRef = doc(db, 'users', user.uid);
+        updateDoc(userRef, { completedChecklistIds: completedIds }).catch(() => {});
+      } catch {
+        // graceful ignore
+      }
+    }
+  }, [completedIds, user?.uid]);
+
+  // Toggle item in checklist
   const toggleItem = (id: string) => {
     setCompletedIds(prev => 
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     );
   };
 
-  // Weighted score calculation
-  const { score, totalPoints, earnedPoints } = useMemo(() => {
-    let max = 0;
-    let earned = 0;
-    CHECKLIST_ITEMS.forEach(item => {
-      const weight = item.impact === 'essential' ? 3 : item.impact === 'recommended' ? 2 : 1;
-      max += weight;
-      if (completedIds.includes(item.id)) {
-        earned += weight;
-      }
-    });
-    const calculatedScore = max > 0 ? Math.round((earned / max) * 100) : 0;
-    return { score: calculatedScore, totalPoints: max, earnedPoints: earned };
-  }, [completedIds]);
-
-  // Score classification
-  const scoreInfo = useMemo(() => {
-    if (score >= 90) {
-      return {
-        label: 'Hardened Digital Defense',
-        variant: 'safe' as const,
-        textColor: 'text-emerald-700',
-        bgColor: 'bg-emerald-50',
-        borderColor: 'border-emerald-200',
-        barColor: 'bg-emerald-500',
-        desc: 'Exceptional security posture. Your core accounts, personal data, and endpoints are heavily fortified against opportunistic and automated cyber threats.'
-      };
-    } else if (score >= 70) {
-      return {
-        label: 'Strong Security Posture',
-        variant: 'info' as const,
-        textColor: 'text-blue-700',
-        bgColor: 'bg-blue-50',
-        borderColor: 'border-blue-200',
-        barColor: 'bg-blue-600',
-        desc: 'Solid foundational baseline. Complete a few remaining high-impact recommendations below to shield against credential theft and data loss.'
-      };
-    } else if (score >= 40) {
-      return {
-        label: 'Moderate Protection - Gaps Present',
-        variant: 'warning' as const,
-        textColor: 'text-amber-800',
-        bgColor: 'bg-amber-50',
-        borderColor: 'border-amber-200',
-        barColor: 'bg-amber-500',
-        desc: 'Basic protections are active, but critical vulnerabilities (such as missing MFA or unverified backups) expose you to credential stuffing and phishing.'
-      };
-    } else {
-      return {
-        label: 'Vulnerable - Action Needed',
-        variant: 'danger' as const,
-        textColor: 'text-rose-700',
-        bgColor: 'bg-rose-50',
-        borderColor: 'border-rose-200',
-        barColor: 'bg-rose-500',
-        desc: 'Significant exposure. Complete the essential checklist items to avoid account hijackings, identity theft, or ransomware data loss.'
-      };
-    }
-  }, [score]);
-
-  // Filter items
-  const filteredItems = useMemo(() => {
-    return CHECKLIST_ITEMS.filter(item => {
-      const matchesCategory = activeCategory === 'all' || item.category === activeCategory;
-      const matchesPending = filterPendingOnly ? !completedIds.includes(item.id) : true;
-      return matchesCategory && matchesPending;
-    });
-  }, [activeCategory, filterPendingOnly, completedIds]);
-
-  // Dynamic priority recommendations (top 3 essential unchecked items)
-  const priorityRecommendations = useMemo(() => {
-    return CHECKLIST_ITEMS.filter(item => !completedIds.includes(item.id))
-      .sort((a, b) => {
-        const weightA = a.impact === 'essential' ? 3 : a.impact === 'recommended' ? 2 : 1;
-        const weightB = b.impact === 'essential' ? 3 : b.impact === 'recommended' ? 2 : 1;
-        return weightB - weightA;
-      })
-      .slice(0, 3);
-  }, [completedIds]);
-
-  // Presets
-  const applyPreset = (preset: 'student' | 'remote' | 'clear') => {
+  // Preset handlers
+  const handleApplyPreset = (preset: 'student' | 'remote' | 'senior' | 'citizen' | 'clear') => {
     if (preset === 'clear') {
       setCompletedIds([]);
       return;
     }
-    if (preset === 'student') {
-      setCompletedIds(['os-auto-updates', 'device-biometric-pin', 'password-manager-unique-passwords', 'mfa-primary-email']);
-    }
-    if (preset === 'remote') {
+    if (preset === 'citizen') {
+      setCompletedIds([
+        'mfa-primary-email',
+        'password-manager-unique-passwords',
+        'os-auto-updates',
+        'device-biometric-pin',
+        'upi-payment-pin-rule',
+        'transaction-alerts-enabled',
+        'scam-pause-reflex'
+      ]);
+    } else if (preset === 'student') {
+      setCompletedIds([
+        'os-auto-updates', 
+        'device-biometric-pin', 
+        'password-manager-unique-passwords', 
+        'mfa-primary-email',
+        'trusted-vpn-public-wifi',
+        'social-media-privacy-scrub'
+      ]);
+    } else if (preset === 'remote') {
       setCompletedIds([
         'os-auto-updates',
         'device-biometric-pin',
         'mfa-primary-email',
         'password-manager-unique-passwords',
+        'recovery-email-audit',
         'change-router-admin-password',
+        'router-wpa3-guest-network',
         'trusted-vpn-public-wifi',
         'three-two-one-backups',
+        'full-disk-encryption',
         'audit-logged-in-sessions'
+      ]);
+    } else if (preset === 'senior') {
+      setCompletedIds([
+        'device-biometric-pin',
+        'os-auto-updates',
+        'trusted-apps-only',
+        'upi-payment-pin-rule',
+        'transaction-alerts-enabled',
+        'scam-pause-reflex',
+        'id-document-watermarking'
       ]);
     }
   };
 
-  // Export action plan as text file
-  const handleExportPlan = () => {
-    const lines = [
-      '==================================================',
-      'CYBERSAFE - DIGITAL SAFETY SELF-ASSESSMENT REPORT',
-      'Academic Community Cyber Safety Awareness Platform',
-      `Date Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`,
-      `Security Score: ${score}% (${scoreInfo.label})`,
-      `Completed Tasks: ${completedIds.length} / ${CHECKLIST_ITEMS.length}`,
-      '==================================================\n',
-      'SUMMARY OF COMPLETED SAFEGUARDS:'
-    ];
-
-    CHECKLIST_ITEMS.filter(item => completedIds.includes(item.id)).forEach((item, idx) => {
-      lines.push(`  [✓] ${item.title} (${item.category.toUpperCase()} - ${item.impact})`);
-    });
-
-    lines.push('\nPRIORITY ACTION ITEMS REMAINING:');
-    CHECKLIST_ITEMS.filter(item => !completedIds.includes(item.id)).forEach((item, idx) => {
-      lines.push(`\n  [ ] ${item.title}`);
-      lines.push(`      Category: ${item.category} | Impact: ${item.impact.toUpperCase()} | Est. Time: ${item.estimatedMinutes} mins`);
-      lines.push(`      Why: ${item.whyItMatters}`);
-      lines.push(`      How-To: ${item.howToGuide}`);
-    });
-
-    lines.push('\n==================================================');
-    lines.push('Keep this report as a reminder. Re-assess every 6 months.');
-
-    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `CyberSafe_Action_Plan_${new Date().toISOString().slice(0, 10)}.txt`;
-    link.click();
-    URL.revokeObjectURL(url);
+  // Open modal by area ID (used by Personal Safety Plan links)
+  const handleSelectByAreaId = (areaId: PreventionAreaId) => {
+    const found = PREVENTION_METHODOLOGIES.find(m => m.areaId === areaId);
+    if (found) {
+      setSelectedMethodology(found);
+    }
   };
+
+  // Filter methodologies
+  const filteredMethodologies = useMemo(() => {
+    return PREVENTION_METHODOLOGIES.filter(m => {
+      const matchesCategory = selectedCategory === 'all' || m.category === selectedCategory;
+      if (!matchesCategory) return false;
+
+      if (!searchQuery.trim()) return true;
+
+      const q = searchQuery.toLowerCase();
+      return (
+        m.title.toLowerCase().includes(q) ||
+        m.tagline.toLowerCase().includes(q) ||
+        m.whatShouldIDo.toLowerCase().includes(q) ||
+        m.risk.summary.toLowerCase().includes(q) ||
+        m.recommendedPractice.goldenRule.toLowerCase().includes(q) ||
+        m.areaId.toLowerCase().includes(q)
+      );
+    });
+  }, [searchQuery, selectedCategory]);
+
+  // Overall completion score for quick header indicator
+  const habitCompletionRate = useMemo(() => {
+    return Math.round((completedIds.length / CHECKLIST_ITEMS.length) * 100);
+  }, [completedIds]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
-      {/* Header */}
-      <div className="space-y-4 max-w-3xl">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200">
-          <CheckSquare className="w-3.5 h-3.5" />
-          <span>Interactive Self-Audit</span>
+      {/* Page Header */}
+      <div className="space-y-4 max-w-4xl">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold border border-blue-200 shadow-2xs">
+          <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+          <span>Practical Methodology-Based Safety System</span>
         </div>
+
         <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-          Digital Safety Health Checklist & Score
+          Prevent: Structured Cyber Hygiene & Habit Formation
         </h1>
+
         <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
-          Evaluate and strengthen your cybersecurity habits across accounts, personal devices, home networks, and data privacy. Check off completed items to calculate your real-time resilience score.
+          Move beyond passive cybersecurity tips. Learn exact, step-by-step methodologies across <strong>14 key prevention areas</strong>, understand what to do, how and when to do it, and evaluate your personal habit maturity index with an actionable, gap-detecting safety plan.
         </p>
       </div>
 
-      {/* Score Dashboard Card */}
-      <Card className={`p-6 sm:p-8 ${scoreInfo.bgColor} border ${scoreInfo.borderColor} space-y-6`}>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Security Posture Index
-              </span>
-              <Badge variant={scoreInfo.variant} size="sm">
-                {scoreInfo.label}
-              </Badge>
-            </div>
-            <div className="flex items-baseline gap-3">
-              <span className={`text-4xl sm:text-6xl font-extrabold tracking-tight ${scoreInfo.textColor}`}>
-                {score}%
-              </span>
-              <span className="text-xs sm:text-sm text-slate-600 font-medium">
-                ({completedIds.length} of {CHECKLIST_ITEMS.length} safeguards implemented)
-              </span>
-            </div>
-            <p className="text-xs sm:text-sm text-slate-700 max-w-2xl leading-relaxed">
-              {scoreInfo.desc}
-            </p>
-          </div>
+      {/* Main Mode Navigation Bar */}
+      <div className="bg-slate-100 p-1.5 rounded-2xl flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border border-slate-200">
+        <div className="flex items-center gap-1.5 w-full sm:w-auto">
+          <button
+            onClick={() => setViewMode('methodologies')}
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              viewMode === 'methodologies'
+                ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            }`}
+          >
+            <BookOpen className="w-4 h-4 text-blue-600" />
+            <span>Methodologies & Action Guides</span>
+            <span className="ml-1 text-[11px] font-bold px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-800">
+              14 Areas
+            </span>
+          </button>
 
-          {/* Quick Actions & Presets */}
-          <div className="flex flex-col sm:flex-row md:flex-col gap-2 shrink-0">
-            <Button
-              variant="outline"
-              size="sm"
-              icon={<Download className="w-4 h-4 text-slate-700" />}
-              onClick={handleExportPlan}
-              className="text-xs bg-white"
-            >
-              Export Action Plan (.txt)
-            </Button>
-            <div className="flex items-center gap-1.5 text-xs text-slate-500 pt-1">
-              <span>Presets:</span>
-              <button 
-                onClick={() => applyPreset('student')}
-                className="hover:text-blue-600 underline cursor-pointer"
-              >
-                Student
-              </button>
-              <span>•</span>
-              <button 
-                onClick={() => applyPreset('remote')}
-                className="hover:text-blue-600 underline cursor-pointer"
-              >
-                Remote Work
-              </button>
-              <span>•</span>
-              <button 
-                onClick={() => applyPreset('clear')}
-                className="hover:text-rose-600 underline cursor-pointer"
-              >
-                Reset
-              </button>
-            </div>
-          </div>
+          <button
+            onClick={() => setViewMode('plan')}
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+              viewMode === 'plan'
+                ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            }`}
+          >
+            <CheckSquare className="w-4 h-4 text-emerald-600" />
+            <span>Personal Safety Plan & Habit Audit</span>
+            <span className="ml-1 text-[11px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800">
+              {habitCompletionRate}%
+            </span>
+          </button>
         </div>
 
-        {/* Progress Bar */}
-        <div className="space-y-1.5">
-          <div className="w-full bg-white/80 rounded-full h-3.5 overflow-hidden border border-slate-200/80 p-0.5">
-            <div 
-              className={`h-full rounded-full transition-all duration-500 ease-out ${scoreInfo.barColor}`}
-              style={{ width: `${score}%` }}
-            ></div>
-          </div>
-          <div className="flex justify-between text-[11px] text-slate-500 font-medium px-1">
-            <span>0% Vulnerable</span>
-            <span>50% Baseline</span>
-            <span>100% Hardened</span>
-          </div>
+        {/* View mode prompt */}
+        <div className="text-xs text-slate-500 px-3 hidden md:flex items-center gap-1.5">
+          <Info className="w-3.5 h-3.5 text-slate-400" />
+          <span>
+            {viewMode === 'methodologies' 
+              ? 'Browse step-by-step methods, risks, common traps & emergency playbooks.'
+              : 'Audit your habit completeness and generate educational recommendations.'
+            }
+          </span>
         </div>
-      </Card>
+      </div>
 
-      {/* Dynamic Priority Recommendations (If Any Incomplete) */}
-      {priorityRecommendations.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-amber-500" />
-            <h2 className="text-base font-bold text-slate-900">Highest-Impact Next Steps for You</h2>
+      {/* VIEW MODE 1: METHODOLOGIES & ACTION GUIDES */}
+      {viewMode === 'methodologies' && (
+        <div className="space-y-8 animate-in fade-in duration-200">
+          {/* Search & Filter Toolbar */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+            {/* Search Input */}
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search password security, MFA, UPI, Wi-Fi, phishing..."
+                className="w-full pl-10 pr-4 py-2 rounded-xl text-xs sm:text-sm bg-slate-50 border border-slate-200 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {/* Category Filter Pills */}
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              {[
+                { id: 'all', label: 'All 14 Areas' },
+                { id: 'accounts', label: 'Accounts (3)' },
+                { id: 'devices', label: 'Devices (2)' },
+                { id: 'network', label: 'Network (2)' },
+                { id: 'communications', label: 'Email (1)' },
+                { id: 'social', label: 'Social (1)' },
+                { id: 'financial', label: 'Financial (2)' },
+                { id: 'privacy', label: 'Privacy & PII (2)' },
+                { id: 'scams', label: 'Scam Defense (1)' }
+              ].map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
+                    selectedCategory === cat.id
+                      ? 'bg-slate-900 text-white font-semibold'
+                      : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {priorityRecommendations.map((rec) => (
-              <div 
-                key={rec.id}
-                className="bg-white rounded-xl border border-amber-200 p-4 space-y-3 shadow-xs flex flex-col justify-between"
-              >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Badge variant={rec.impact === 'essential' ? 'danger' : 'warning'} size="sm">
-                      {rec.impact.toUpperCase()}
-                    </Badge>
-                    <span className="text-[11px] text-slate-500 flex items-center gap-1 font-medium">
-                      <Clock className="w-3 h-3" />
-                      {rec.estimatedMinutes} min
-                    </span>
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-900 leading-snug">{rec.title}</h3>
-                  <p className="text-xs text-slate-600 line-clamp-2">{rec.whyItMatters}</p>
-                </div>
+          {/* Results Summary */}
+          <div className="flex items-center justify-between text-xs text-slate-500 px-1">
+            <span>
+              Showing <strong>{filteredMethodologies.length}</strong> of <strong>14</strong> structured methodologies
+            </span>
+            <span className="hidden sm:inline">
+              Click any card to inspect Risk, Step-by-Step Method, Traps & Emergency Triage
+            </span>
+          </div>
 
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                  <button
-                    onClick={() => toggleItem(rec.id)}
-                    className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>Mark Completed</span>
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setExpandedItemId(expandedItemId === rec.id ? null : rec.id)}
-                    className="text-xs text-slate-500 hover:text-slate-800 cursor-pointer"
-                  >
-                    Instructions
-                  </button>
-                </div>
+          {/* Methodology Cards Grid */}
+          {filteredMethodologies.length === 0 ? (
+            <div className="py-16 text-center text-slate-500 space-y-3 bg-white rounded-2xl border border-slate-200">
+              <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto" />
+              <p className="text-base font-bold text-slate-800">No methodologies match your search</p>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                Try searching for broader terms like "password", "updates", "Wi-Fi", "shopping", or reset your category filter.
+              </p>
+              <button
+                onClick={() => { setSearchQuery(''); setSelectedCategory('all'); }}
+                className="text-xs font-semibold text-blue-600 hover:underline cursor-pointer pt-2"
+              >
+                Reset all filters
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredMethodologies.map(methodology => (
+                <MethodologyCard
+                  key={methodology.id}
+                  methodology={methodology}
+                  onSelect={setSelectedMethodology}
+                  completedItemIds={completedIds}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Bottom Educational Callout */}
+          <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-900 to-slate-900 text-white flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-md">
+            <div className="space-y-2 max-w-2xl">
+              <div className="flex items-center gap-2 text-blue-300 text-xs font-bold uppercase tracking-wider">
+                <Sparkles className="w-4 h-4" />
+                <span>Ready to Audit Your Habits?</span>
               </div>
-            ))}
+              <h3 className="text-xl font-bold">
+                Evaluate Your Personal Digital Safety Plan
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                Take the interactive self-audit to detect missing habits across account credentials, device encryption, Wi-Fi security, and financial transaction alerts.
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                setViewMode('plan');
+                window.scrollTo({ top: 300, behavior: 'smooth' });
+              }}
+              className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xs transition-colors shrink-0 cursor-pointer"
+            >
+              <span>Open Personal Safety Plan</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}
 
-      {/* Main Checklist Section */}
-      <div className="space-y-6">
-        {/* Category Filter Tabs */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-3">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {[
-              { id: 'all', label: 'All Safeguards', count: CHECKLIST_ITEMS.length },
-              { id: 'accounts', label: 'Accounts', count: CHECKLIST_ITEMS.filter(i => i.category === 'accounts').length },
-              { id: 'devices', label: 'Devices', count: CHECKLIST_ITEMS.filter(i => i.category === 'devices').length },
-              { id: 'network', label: 'Network', count: CHECKLIST_ITEMS.filter(i => i.category === 'network').length },
-              { id: 'privacy', label: 'Privacy & Data', count: CHECKLIST_ITEMS.filter(i => i.category === 'privacy').length },
-            ].map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => setActiveCategory(cat.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors cursor-pointer ${
-                  activeCategory === cat.id
-                    ? 'bg-slate-900 text-white font-semibold'
-                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                {cat.label} ({cat.count})
-              </button>
-            ))}
-          </div>
-
-          {/* Toggle Pending Only */}
-          <label className="flex items-center gap-2 text-xs font-medium text-slate-600 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={filterPendingOnly}
-              onChange={(e) => setFilterPendingOnly(e.target.checked)}
-              className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
-            />
-            <span>Show Pending Only</span>
-          </label>
+      {/* VIEW MODE 2: PERSONAL SAFETY PLAN & HABIT AUDIT */}
+      {viewMode === 'plan' && (
+        <div className="animate-in fade-in duration-200">
+          <PersonalSafetyPlan
+            completedIds={completedIds}
+            onToggleItem={toggleItem}
+            onApplyPreset={handleApplyPreset}
+            onSelectMethodologyByAreaId={handleSelectByAreaId}
+          />
         </div>
+      )}
 
-        {/* Checklist Items List */}
-        <div className="space-y-3">
-          {filteredItems.length === 0 ? (
-            <div className="py-12 text-center text-slate-500 space-y-2 bg-white rounded-xl border border-slate-200">
-              <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
-              <p className="text-sm font-semibold text-slate-800">No pending items in this category!</p>
-              <p className="text-xs text-slate-500">You have completed all selected safeguards.</p>
-            </div>
-          ) : (
-            filteredItems.map(item => {
-              const isCompleted = completedIds.includes(item.id);
-              const isExpanded = expandedItemId === item.id;
-
-              return (
-                <Card 
-                  key={item.id}
-                  className={`p-4 sm:p-5 transition-all ${
-                    isCompleted ? 'bg-slate-50/70 border-slate-200' : 'bg-white border-slate-200 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="flex items-start gap-4">
-                    {/* Checkbox */}
-                    <button
-                      onClick={() => toggleItem(item.id)}
-                      className={`w-6 h-6 rounded-md border flex items-center justify-center shrink-0 mt-0.5 transition-colors cursor-pointer ${
-                        isCompleted
-                          ? 'bg-emerald-600 border-emerald-600 text-white shadow-xs'
-                          : 'bg-white border-slate-300 hover:border-blue-500'
-                      }`}
-                      aria-label={`Toggle ${item.title}`}
-                    >
-                      {isCompleted && <CheckCircle2 className="w-4 h-4" />}
-                    </button>
-
-                    {/* Content */}
-                    <div className="flex-1 space-y-2 min-w-0">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className={`text-sm sm:text-base font-bold ${
-                            isCompleted ? 'line-through text-slate-500' : 'text-slate-900'
-                          }`}>
-                            {item.title}
-                          </h3>
-                          <Badge
-                            variant={
-                              item.impact === 'essential'
-                                ? 'danger'
-                                : item.impact === 'recommended'
-                                ? 'warning'
-                                : 'neutral'
-                            }
-                            size="sm"
-                          >
-                            {item.impact}
-                          </Badge>
-                        </div>
-
-                        <span className="text-xs text-slate-500 font-medium flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5 text-slate-400" />
-                          ~{item.estimatedMinutes} mins
-                        </span>
-                      </div>
-
-                      <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                        {item.description}
-                      </p>
-
-                      {/* Expandable Details */}
-                      {isExpanded && (
-                        <div className="pt-3 mt-3 border-t border-slate-200 space-y-3 animate-in fade-in duration-150 text-xs sm:text-sm">
-                          <div className="bg-blue-50/60 p-3 rounded-lg border border-blue-100 text-blue-950 space-y-1">
-                            <span className="font-bold flex items-center gap-1 text-blue-900">
-                              <Info className="w-3.5 h-3.5 text-blue-600" />
-                              Why This Matters
-                            </span>
-                            <p>{item.whyItMatters}</p>
-                          </div>
-
-                          <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-slate-800 space-y-1">
-                            <span className="font-bold text-slate-900">How to Implement</span>
-                            <p className="leading-relaxed">{item.howToGuide}</p>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="pt-1 flex items-center justify-between">
-                        <button
-                          onClick={() => setExpandedItemId(isExpanded ? null : item.id)}
-                          className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 cursor-pointer"
-                        >
-                          <span>{isExpanded ? 'Hide implementation instructions' : 'View how-to instructions & context'}</span>
-                          {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })
-          )}
-        </div>
-      </div>
+      {/* Deep Methodology Detail Modal */}
+      <MethodologyDetailModal
+        methodology={selectedMethodology}
+        onClose={() => setSelectedMethodology(null)}
+        completedItemIds={completedIds}
+        onToggleChecklistItem={toggleItem}
+        onOpenReport={onNavigateToReport}
+      />
     </div>
   );
 };

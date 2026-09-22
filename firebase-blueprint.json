@@ -42,6 +42,75 @@
         "userId": { "type": "string", "maxLength": 128 }
       },
       "required": ["quizId", "score", "total", "completedAt", "userId"]
+    },
+    "LearningResource": {
+      "title": "LearningResource",
+      "description": "Educational cyber threat guide item managed by administrators",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 200 },
+        "category": { "type": "string", "maxLength": 100 },
+        "severity": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "shortDesc": { "type": "string", "maxLength": 500 },
+        "fullDesc": { "type": "string", "maxLength": 4000 },
+        "redFlags": { "type": "array" },
+        "realExample": { "type": "string", "maxLength": 2000 },
+        "actionSteps": { "type": "array" },
+        "preventionTips": { "type": "array" },
+        "status": { "type": "string", "enum": ["published", "draft"] },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "category", "severity", "shortDesc", "status"]
+    },
+    "PreventionMethodology": {
+      "title": "PreventionMethodology",
+      "description": "Structured digital defense methodology",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 200 },
+        "standard": { "type": "string", "maxLength": 100 },
+        "summary": { "type": "string", "maxLength": 1000 },
+        "targetAudience": { "type": "string", "maxLength": 100 },
+        "phases": { "type": "array" },
+        "status": { "type": "string", "enum": ["published", "draft"] },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "standard", "summary", "status"]
+    },
+    "QuizQuestionItem": {
+      "title": "QuizQuestionItem",
+      "description": "Interactive educational scenario quiz item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number" },
+        "title": { "type": "string", "maxLength": 200 },
+        "topic": { "type": "string", "maxLength": 100 },
+        "scenario": { "type": "string", "maxLength": 2000 },
+        "question": { "type": "string", "maxLength": 500 },
+        "options": { "type": "array" },
+        "warningSigns": { "type": "array" },
+        "takeaway": { "type": "string", "maxLength": 1000 },
+        "difficulty": { "type": "string", "enum": ["beginner", "intermediate", "advanced"] },
+        "status": { "type": "string", "enum": ["published", "draft"] },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "topic", "scenario", "question", "options", "status"]
+    },
+    "EmergencyResource": {
+      "title": "EmergencyResource",
+      "description": "Statutory helpline, cyber cell, and reporting guidelines",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "helplineNumber": { "type": "string", "maxLength": 20 },
+        "helplineName": { "type": "string", "maxLength": 100 },
+        "portalUrl": { "type": "string", "maxLength": 500 },
+        "disclaimer": { "type": "string", "maxLength": 1000 },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "helplineNumber", "portalUrl"]
     }
   },
   "firestore": {
@@ -56,6 +125,22 @@
     "/users/{userId}/quizRecords/{recordId}": {
       "schema": "UserQuizRecord",
       "description": "Quiz assessment attempts completed by the user"
+    },
+    "/content_threats/{threatId}": {
+      "schema": "LearningResource",
+      "description": "Educational threat guides managed by administrators"
+    },
+    "/content_preventions/{prevId}": {
+      "schema": "PreventionMethodology",
+      "description": "Prevention methodologies managed by administrators"
+    },
+    "/content_quiz/{quizId}": {
+      "schema": "QuizQuestionItem",
+      "description": "Quiz questions and scenario tests managed by administrators"
+    },
+    "/content_reporting/{resourceId}": {
+      "schema": "EmergencyResource",
+      "description": "Reporting guidance and official helpline configurations"
     }
   }
 }
