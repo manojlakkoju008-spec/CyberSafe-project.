@@ -25,7 +25,8 @@ import {
   HelpCircle,
   AlertOctagon,
   Copy,
-  Check
+  Check,
+  MapPin
 } from 'lucide-react';
 import { REPORT_CATEGORIES, INDIA_REPORTING_INFO, EVIDENCE_CHECKLIST_ITEMS } from '../data/reportData';
 import { EMERGENCY_SITUATIONS } from '../data/emergencyHelperData';
@@ -35,12 +36,13 @@ import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
 import { IconHelper } from '../components/common/IconHelper';
 import { EmergencyHelper } from '../components/report/EmergencyHelper';
+import { NearbyHelpSection } from '../components/report/NearbyHelpSection';
 
 interface ReportPageProps {
   initialIncidentId?: string;
 }
 
-type ActiveViewTab = 'emergency-helper' | 'categories' | 'evidence';
+type ActiveViewTab = 'emergency-helper' | 'nearby-help' | 'categories' | 'evidence';
 
 export const ReportPage: React.FC<ReportPageProps> = ({ initialIncidentId }) => {
   // Determine if initialIncidentId matches an emergency situation or a report category
@@ -226,6 +228,21 @@ export const ReportPage: React.FC<ReportPageProps> = ({ initialIncidentId }) => 
         </button>
 
         <button
+          onClick={() => setActiveTab('nearby-help')}
+          className={`pb-3 px-3 sm:px-4 font-bold text-xs sm:text-sm border-b-2 transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
+            activeTab === 'nearby-help'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <MapPin className="w-4 h-4" />
+          <span>Find Nearby Help</span>
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-extrabold">
+            Map & Police
+          </span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('categories')}
           className={`pb-3 px-3 sm:px-4 font-bold text-xs sm:text-sm border-b-2 transition-all flex items-center gap-2 shrink-0 cursor-pointer ${
             activeTab === 'categories'
@@ -258,13 +275,33 @@ export const ReportPage: React.FC<ReportPageProps> = ({ initialIncidentId }) => 
 
       {/* 4. Tab 1: Emergency Helper */}
       {activeTab === 'emergency-helper' && (
-        <EmergencyHelper
-          initialSituationId={emergencyHelperScenarioId}
-          onSelectReportingCategory={(catId) => {
-            setSelectedCategoryId(catId);
-            setActiveTab('categories');
-          }}
-        />
+        <div className="space-y-10 animate-fadeIn">
+          <EmergencyHelper
+            initialSituationId={emergencyHelperScenarioId}
+            onSelectReportingCategory={(catId) => {
+              setSelectedCategoryId(catId);
+              setActiveTab('categories');
+            }}
+            onFindNearbyHelp={() => {
+              const el = document.getElementById('find-nearby-help');
+              if (el) {
+                el.scrollIntoView({ behavior: 'smooth' });
+              } else {
+                setActiveTab('nearby-help');
+              }
+            }}
+          />
+
+          {/* Integrated Find Nearby Help Map & List Section */}
+          <NearbyHelpSection />
+        </div>
+      )}
+
+      {/* 4b. Dedicated Tab: Find Nearby Help */}
+      {activeTab === 'nearby-help' && (
+        <div className="animate-fadeIn">
+          <NearbyHelpSection />
+        </div>
       )}
 
       {/* 5. Tab 2: Category Reporting Guide (All 9 Categories with 5 Facets) */}

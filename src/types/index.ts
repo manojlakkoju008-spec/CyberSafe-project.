@@ -249,14 +249,44 @@ export interface PersonaSafetyRecommendation {
 // ==========================================
 // WORKSTREAM 6: ADVANCED DETECTION FUNCTIONALITY
 // ==========================================
+export type ThreatReputationStatus =
+  | 'KNOWN MALICIOUS'
+  | 'KNOWN PHISHING'
+  | 'KNOWN MALWARE'
+  | 'SUSPICIOUS'
+  | 'NO KNOWN THREAT FOUND'
+  | 'UNKNOWN'
+  | 'THREAT INTELLIGENCE UNAVAILABLE'
+  | 'INVALID URL';
+
+export interface ThreatIntelligenceReport {
+  status: ThreatReputationStatus;
+  provider: string;
+  threatTypes: string[];
+  checkedAt: string;
+  isAvailable: boolean;
+  details?: string;
+  sourceConfidence?: 'High' | 'Medium' | 'Low' | 'Unrated';
+  disclaimer: string;
+}
+
+export interface CheckPerformedItem {
+  id: string;
+  name: string;
+  status: 'passed' | 'warning' | 'failed' | 'unavailable';
+  detail: string;
+}
+
 export interface UrlIndicator {
   name: string;
   category?: 'protocol' | 'host' | 'path' | 'query' | 'syntax' | 'general';
+  severity: 'low' | 'medium' | 'high' | 'critical' | 'informational';
   status: 'positive' | 'warning' | 'risk';
   description: string;
   whyItMatters: string;
   impactPoints: number;
   iconType: 'check' | 'alert' | 'danger';
+  recommendation?: string;
 }
 
 export interface UrlScoreBreakdownItem {
@@ -268,6 +298,9 @@ export interface UrlScoreBreakdownItem {
 
 export interface UrlScanAssessment {
   rawInput: string;
+  normalizedUrl: string;
+  wasNormalized: boolean;
+  normalizationNote?: string;
   isValid: boolean;
   protocol: string;
   hostname: string;
@@ -277,12 +310,17 @@ export interface UrlScanAssessment {
   isHttps: boolean;
   isIpAddress: boolean;
   ipType?: 'ipv4' | 'ipv6';
+  isPrivateOrLocalIp?: boolean;
   hasAtSymbol: boolean;
   subdomainCount: number;
   subdomains: string[];
   registeredDomain: string;
   isPunycode: boolean;
   punycodeDetails?: string;
+  hasHomographRisk?: boolean;
+  unicodeAnalysis?: { isPunycode: boolean; containsNonAscii: boolean; scriptsDetected?: string[] };
+  isShortenedUrl?: boolean;
+  shortenerDomain?: string;
   hasSuspiciousKeywords: boolean;
   suspiciousKeywordsFound: string[];
   hasExcessiveParams: boolean;
@@ -290,14 +328,19 @@ export interface UrlScanAssessment {
   hasOpenRedirectParam: boolean;
   hasSuspiciousEncoding: boolean;
   encodedSequencesCount: number;
+  hasDoubleEncoding?: boolean;
   suspiciousCharacters: string[];
   hasUnusualPort: boolean;
   hasDangerousExtension: boolean;
   dangerousExtension?: string;
   urlLength: number;
   hostnameLength: number;
-  riskScore: number; // 0 - 100
+  // Layered Risk Assessment
+  structuralScore: number; // 0 - 100
+  riskScore: number; // Final Combined 0 - 100
   riskLevel: 'Low Risk' | 'Medium Risk' | 'High Risk';
+  reputationReport: ThreatIntelligenceReport;
+  checksPerformed: CheckPerformedItem[];
   scoreBreakdown: UrlScoreBreakdownItem[];
   indicators: UrlIndicator[];
   explanation: string;
@@ -306,6 +349,28 @@ export interface UrlScanAssessment {
   redirectNotice: string;
   errorMessage?: string;
   scannedAt?: string;
+}
+
+export interface ExtractedUrlInfo {
+  id: string;
+  originalText: string;
+  extractedUrl: string;
+  normalizedUrl: string;
+  position: { start: number; end: number };
+  assessment?: UrlScanAssessment;
+}
+
+export interface MessageTextAnalysis {
+  rawText: string;
+  hasLinks: boolean;
+  linkCount: number;
+  extractedUrls: ExtractedUrlInfo[];
+  detectedPatterns: {
+    hasUrgency: boolean;
+    hasFinancialPretext: boolean;
+    hasSuspiciousShortener: boolean;
+    hasCredentialHarvestingWords: boolean;
+  };
 }
 
 export interface SmishingMessageAssessment {
@@ -544,3 +609,46 @@ export interface ContentAuditLog {
   timestamp: string;
   changeSummary: string;
 }
+
+// ==========================================
+// WORKSTREAM 9: FIND NEARBY HELP (GEOSPATIAL REPORTING LOCATIONS)
+// ==========================================
+export type NearbyLocationCategory =
+  | 'POLICE STATION'
+  | 'CYBERCRIME / CYBER CELL'
+  | 'GOVERNMENT SUPPORT'
+  | 'OTHER RELEVANT HELP';
+
+export interface NearbyHelpLocation {
+  id: string;
+  name: string;
+  category: NearbyLocationCategory;
+  isCyberDedicated: boolean;
+  latitude: number;
+  longitude: number;
+  distanceKm: number;
+  address: string;
+  city?: string;
+  state?: string;
+  postcode?: string;
+  phone?: string;
+  website?: string;
+  openingHours?: string;
+  osmType?: 'node' | 'way' | 'relation';
+  osmId?: number | string;
+  verifiedSource: 'OpenStreetMap' | 'Official Directory';
+}
+
+export interface UserCoordinates {
+  latitude: number;
+  longitude: number;
+  accuracyMeters?: number;
+  localityLabel?: string;
+}
+
+export interface NearbySearchFilters {
+  category: 'all' | NearbyLocationCategory;
+  maxRadiusKm: number;
+  searchQuery: string;
+}
+

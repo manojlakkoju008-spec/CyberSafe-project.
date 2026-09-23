@@ -23,10 +23,15 @@ import {
   Activity,
   AlertOctagon,
   Copy,
-  Check
+  Check,
+  MessageSquare,
+  ExternalLink,
+  Radar,
+  FileText
 } from 'lucide-react';
 import { UrlScanAssessment } from '../types';
 import { analyzeUrlSafety } from '../utils/detectorEngine';
+import { extractUrlsFromMessage } from '../utils/urlParser';
 import { DETECTOR_TEST_CASES, DetectorTestCase } from '../data/detectorTestCases';
 import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
@@ -45,27 +50,45 @@ interface TestRunResult {
 }
 
 export const DetectPage: React.FC<DetectPageProps> = ({ onNavigateToReport }) => {
+  const [activeMode, setActiveMode] = useState<'url' | 'message'>('url');
+  
+  // URL Input State
   const [urlInput, setUrlInput] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [assessment, setAssessment] = useState<UrlScanAssessment | null>(null);
   const [activeIndicatorFilter, setActiveIndicatorFilter] = useState<string>('all');
   const [copiedUrl, setCopiedUrl] = useState(false);
+  const [copiedSummary, setCopiedSummary] = useState(false);
+
+  // Message / Text Analysis State (Phase 9)
+  const [messageInput, setMessageInput] = useState('');
+  const [analyzedMessage, setAnalyzedMessage] = useState<ReturnType<typeof extractUrlsFromMessage> | null>(null);
 
   // Automated QA Test Suite State
   const [qaResults, setQaResults] = useState<TestRunResult[] | null>(null);
   const [showTestSuite, setShowTestSuite] = useState(false);
+  const [isTestingQa, setIsTestingQa] = useState(false);
 
-  const handleAnalyze = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!urlInput.trim()) return;
+  const handleAnalyzeUrl = async (urlToInspect: string) => {
+    const target = urlToInspect.trim();
+    if (!target) return;
 
     setIsAnalyzing(true);
-    // Snappy, realistic client-side processing feedback
-    setTimeout(() => {
-      const result = analyzeUrlSafety(urlInput);
+    try {
+      const result = await analyzeUrlSafety(target);
       setAssessment(result);
+    } catch {
+      // Graceful fallback on unexpected error
+    } finally {
       setIsAnalyzing(false);
-    }, 150);
+    }
+  };
+
+  const handleSubmitForm = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (urlInput.trim()) {
+      handleAnalyzeUrl(urlInput);
+    }
   };
 
   const handleClear = () => {
@@ -75,13 +98,9 @@ export const DetectPage: React.FC<DetectPageProps> = ({ onNavigateToReport }) =>
 
   const handleLoadSample = (sampleUrl: string) => {
     setUrlInput(sampleUrl);
-    setIsAnalyzing(true);
-    setTimeout(() => {
-      const result = analyzeUrlSafety(sampleUrl);
-      setAssessment(result);
-      setIsAnalyzing(false);
-      window.scrollTo({ top: 320, behavior: 'smooth' });
-    }, 150);
+    setActiveMode('url');
+    handleAnalyzeUrl(sampleUrl);
+    window.scrollTo({ top: 340, behavior: 'smooth' });
   };
 
   const handleCopyUrl = () => {
@@ -91,30 +110,71 @@ export const DetectPage: React.FC<DetectPageProps> = ({ onNavigateToReport }) =>
     setTimeout(() => setCopiedUrl(false), 2000);
   };
 
-  // Run full automated QA Test Suite
-  const handleRunQaTestSuite = () => {
+  const handleCopySummary = () => {
+    if (!assessment) return;
+    const text = `CyberSafe Threat Assessment Summary:
+URL: ${assessment.normalizedUrl}
+Risk Level: ${assessment.riskLevel} (${assessment.riskScore}/100)
+Structural Score: ${assessment.structuralScore}/100
+Threat Intelligence: ${assessment.reputationReport.status} (${assessment.reputationReport.provider})
+Explanation: ${assessment.explanation}
+Notice: No known threat detected does not guarantee safety.`;
+    navigator.clipboard.writeText(text);
+    setCopiedSummary(true);
+    setTimeout(() => setCopiedSummary(false), 2000);
+  };
+
+  // Message Parsing Trigger
+  const handleParseMessage = (text: string) => {
+    setMessageInput(text);
+    if (!text.trim()) {
+      setAnalyzedMessage(null);
+      return;
+    }
+    const extracted = extractUrlsFromMessage(text);
+    setAnalyzedMessage(extracted);
+  };
+
+  const handleInspectExtractedLink = (linkUrl: string) => {
+    setUrlInput(linkUrl);
+    setActiveMode('url');
+    handleAnalyzeUrl(linkUrl);
+    window.scrollTo({ top: 340, behavior: 'smooth' });
+  };
+
+  // Run full automated QA Test Suite asynchronously
+  const handleRunQaTestSuite = async () => {
+    setIsTestingQa(true);
     setShowTestSuite(true);
-    const results: TestRunResult[] = DETECTOR_TEST_CASES.map(tc => {
-      const start = performance.now();
-      const output = analyzeUrlSafety(tc.url);
-      const end = performance.now();
-      const passed = output.riskLevel === tc.expectedRiskLevel && output.isValid !== false ? true : (tc.category === 'malformed' && !output.isValid);
-      return {
-        testCase: tc,
-        actualScore: output.riskScore,
-        actualLevel: output.riskLevel,
-        passed,
-        timeMs: Math.round((end - start) * 100) / 100
-      };
-    });
+
+    const results: TestRunResult[] = await Promise.all(
+      DETECTOR_TEST_CASES.map(async (tc) => {
+        const start = performance.now();
+        const output = await analyzeUrlSafety(tc.url);
+        const end = performance.now();
+        const passed =
+          output.riskLevel === tc.expectedRiskLevel && output.isValid !== false
+            ? true
+            : tc.category === 'malformed' && !output.isValid;
+        return {
+          testCase: tc,
+          actualScore: output.riskScore,
+          actualLevel: output.riskLevel,
+          passed,
+          timeMs: Math.round((end - start) * 100) / 100,
+        };
+      })
+    );
+
     setQaResults(results);
+    setIsTestingQa(false);
   };
 
   // Filter indicators
   const filteredIndicators = useMemo(() => {
     if (!assessment) return [];
     if (activeIndicatorFilter === 'all') return assessment.indicators;
-    return assessment.indicators.filter(ind => ind.category === activeIndicatorFilter);
+    return assessment.indicators.filter((ind) => ind.category === activeIndicatorFilter);
   }, [assessment, activeIndicatorFilter]);
 
   return (
@@ -123,140 +183,289 @@ export const DetectPage: React.FC<DetectPageProps> = ({ onNavigateToReport }) =>
       <div className="space-y-4 max-w-4xl">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-800 text-xs font-semibold border border-blue-200 shadow-2xs">
           <Shield className="w-3.5 h-3.5 text-blue-600" />
-          <span>Zero-Contact Client-Side Heuristic Analyzer</span>
+          <span>Layered URL Threat Assessment & Heuristic Engine</span>
         </div>
 
         <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-          Detect: Transparent URL Risk Analysis
+          Detect: URL & Link Threat Assessment
         </h1>
 
         <p className="text-base sm:text-lg text-slate-600 leading-relaxed font-medium">
-          Inspect suspicious links before clicking. Evaluate protocol encryption, domain reputation signals, raw IP usage, userinfo deception, and suspicious query parameters.
+          Examine suspicious web links, extract URLs from suspicious messages, evaluate protocol encryption, inspect domain hierarchy, and review threat intelligence records.
         </p>
 
         <p className="text-xs sm:text-sm text-slate-500 leading-relaxed max-w-3xl">
-          CyberSafe analyzes URLs strictly as <strong>untrusted text strings</strong>. We never visit, crawl, render, or execute target URLs, ensuring zero tracking and complete protection against drive-by downloads.
+          CyberSafe treats every address strictly as an <strong>untrusted text string</strong>. We never visit, crawl, render inside an iframe, or execute scripts from the target website. All structural evaluation runs client-side with zero tracking.
         </p>
       </div>
 
-      {/* URL Input Form Card */}
-      <Card className="p-6 sm:p-8 space-y-6 shadow-sm border-slate-200 bg-white">
-        <form onSubmit={handleAnalyze} className="space-y-4">
-          <div className="space-y-2">
+      {/* Input Mode Selector Tabs */}
+      <div className="flex border-b border-slate-200 gap-2">
+        <button
+          onClick={() => setActiveMode('url')}
+          className={`pb-3 px-4 font-bold text-xs sm:text-sm border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+            activeMode === 'url'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <LinkIcon className="w-4 h-4" />
+          <span>Inspect Single URL</span>
+        </button>
+
+        <button
+          onClick={() => setActiveMode('message')}
+          className={`pb-3 px-4 font-bold text-xs sm:text-sm border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+            activeMode === 'message'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <MessageSquare className="w-4 h-4" />
+          <span>Extract Links From Message (SMS / WhatsApp)</span>
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-extrabold">
+            Text Extractor
+          </span>
+        </button>
+      </div>
+
+      {/* MODE 1: Single URL Input Form */}
+      {activeMode === 'url' && (
+        <Card className="p-6 sm:p-8 space-y-6 shadow-sm border-slate-200 bg-white">
+          <form onSubmit={handleSubmitForm} className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label htmlFor="url-input-field" className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Web Address / URL to Inspect
+                </label>
+                <span className="text-[11px] text-slate-500 font-medium">
+                  Supports domains, full paths, IPv4/IPv6, and parameters
+                </span>
+              </div>
+
+              <div className="relative flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <LinkIcon className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                  <input
+                    id="url-input-field"
+                    type="text"
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    placeholder="Paste URL, e.g., https://example.com or suspicious link"
+                    className="w-full pl-11 pr-12 py-3.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:bg-white font-mono transition-all"
+                    autoComplete="off"
+                    spellCheck="false"
+                  />
+                  {urlInput && (
+                    <button
+                      type="button"
+                      onClick={handleCopyUrl}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 rounded-md transition-colors cursor-pointer"
+                      title="Copy URL"
+                    >
+                      {copiedUrl ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="md"
+                    disabled={isAnalyzing || !urlInput.trim()}
+                    icon={<Search className="w-4 h-4" />}
+                    className="w-full sm:w-auto shrink-0 font-bold"
+                  >
+                    {isAnalyzing ? 'Analyzing URL...' : 'Analyze URL'}
+                  </Button>
+                  {urlInput && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="md"
+                      onClick={handleClear}
+                      icon={<RotateCcw className="w-4 h-4" />}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Interactive Curated Sample Scenarios */}
+            <div className="space-y-2.5 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <Terminal className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Test With Realistic Attack & Legitimate Patterns:</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleRunQaTestSuite}
+                  disabled={isTestingQa}
+                  className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-200 transition-colors"
+                >
+                  <PlayCircle className="w-3.5 h-3.5" />
+                  <span>{isTestingQa ? 'Running QA Tests...' : 'Run Automated QA Test Suite (12 Scenarios)'}</span>
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {DETECTOR_TEST_CASES.slice(0, 7).map((sample) => (
+                  <button
+                    key={sample.id}
+                    type="button"
+                    onClick={() => handleLoadSample(sample.url)}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer flex items-center gap-1.5 ${
+                      sample.expectedRiskLevel === 'High Risk'
+                        ? 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-200'
+                        : sample.expectedRiskLevel === 'Medium Risk'
+                        ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
+                    }`}
+                    title={sample.description}
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        sample.expectedRiskLevel === 'High Risk'
+                          ? 'bg-rose-500'
+                          : sample.expectedRiskLevel === 'Medium Risk'
+                          ? 'bg-amber-500'
+                          : 'bg-emerald-500'
+                      }`}
+                    />
+                    <span>{sample.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </form>
+
+          {/* Security & Zero-Contact Privacy Guarantee Callout */}
+          <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/90 text-xs text-slate-600 space-y-1.5">
+            <div className="flex items-center gap-2 font-bold text-slate-900">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Strict Zero-Contact Architecture & Privacy Disclosure</span>
+            </div>
+            <p className="leading-relaxed text-slate-600">
+              CyberSafe evaluates URLs strictly as untrusted text. We <strong>never connect to, render in an iframe, or execute code</strong> from target URLs.
+              When threat intelligence checking is performed, only normalized hostnames or cryptographic domain hashes are verified against security databases; no user cookies or identity tokens are ever transmitted.
+            </p>
+          </div>
+        </Card>
+      )}
+
+      {/* MODE 2: Message & Text Link Extractor (Phase 9) */}
+      {activeMode === 'message' && (
+        <Card className="p-6 sm:p-8 space-y-6 shadow-sm border-slate-200 bg-white">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <label htmlFor="url-input-field" className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                Web Address / URL to Inspect
+              <label htmlFor="message-input-field" className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                Paste Entire SMS, Email, or WhatsApp Message
               </label>
               <span className="text-[11px] text-slate-500 font-medium">
-                Supports domains, full paths, IPv4/IPv6, and parameters
+                Untrusted Text Analysis & Safe Link Extraction
               </span>
             </div>
 
-            <div className="relative flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <LinkIcon className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                <input
-                  id="url-input-field"
-                  type="text"
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  placeholder="Paste URL, e.g., https://example.com or suspicious SMS link"
-                  className="w-full pl-11 pr-12 py-3.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:bg-white font-mono transition-all"
-                  autoComplete="off"
-                  spellCheck="false"
-                />
-                {urlInput && (
-                  <button
-                    type="button"
-                    onClick={handleCopyUrl}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-1 rounded-md transition-colors"
-                    title="Copy URL"
-                  >
-                    {copiedUrl ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                  </button>
-                )}
-              </div>
+            <textarea
+              id="message-input-field"
+              rows={4}
+              value={messageInput}
+              onChange={(e) => handleParseMessage(e.target.value)}
+              placeholder="Paste suspicious message here, e.g.:&#10;Your bank account has been suspended due to pending KYC. Verify immediately at: https://sbi.bank.secure-auth-update.xyz/verify"
+              className="w-full p-4 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-600 focus:bg-white font-sans transition-all leading-relaxed"
+            />
 
-              <div className="flex items-center gap-2">
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="md"
-                  disabled={isAnalyzing || !urlInput.trim()}
-                  icon={<Search className="w-4 h-4" />}
-                  className="w-full sm:w-auto shrink-0 font-bold"
-                >
-                  {isAnalyzing ? 'Analyzing URL...' : 'Analyze URL'}
-                </Button>
-                {urlInput && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="md"
-                    onClick={handleClear}
-                    icon={<RotateCcw className="w-4 h-4" />}
-                  >
-                    Clear
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Interactive Curated Sample Scenarios */}
-          <div className="space-y-2.5 pt-3 border-t border-slate-100">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <Terminal className="w-3.5 h-3.5 text-blue-600" />
-                <span>Test With Realistic Attack & Legitimate Patterns:</span>
+            <div className="flex items-center justify-between flex-wrap gap-2 text-xs">
+              <span className="text-slate-500">
+                Pasted text is treated strictly as untrusted input. Links will not be clicked or executed.
               </span>
-              <button
-                type="button"
-                onClick={handleRunQaTestSuite}
-                className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-200 transition-colors"
-              >
-                <PlayCircle className="w-3.5 h-3.5" />
-                <span>Run Automated QA Test Suite (12 Scenarios)</span>
-              </button>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              {DETECTOR_TEST_CASES.slice(0, 7).map((sample) => (
+              {messageInput && (
                 <button
-                  key={sample.id}
-                  type="button"
-                  onClick={() => handleLoadSample(sample.url)}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors cursor-pointer flex items-center gap-1.5 ${
-                    sample.expectedRiskLevel === 'High Risk'
-                      ? 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-200'
-                      : sample.expectedRiskLevel === 'Medium Risk'
-                      ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200'
-                  }`}
-                  title={sample.description}
+                  onClick={() => handleParseMessage('')}
+                  className="text-xs text-slate-500 hover:text-slate-800 font-bold cursor-pointer"
                 >
-                  <span className={`w-2 h-2 rounded-full ${
-                    sample.expectedRiskLevel === 'High Risk' ? 'bg-rose-500' :
-                    sample.expectedRiskLevel === 'Medium Risk' ? 'bg-amber-500' : 'bg-emerald-500'
-                  }`} />
-                  <span>{sample.name}</span>
+                  Clear Message
                 </button>
-              ))}
+              )}
             </div>
           </div>
-        </form>
 
-        {/* Security & Zero-Contact Privacy Guarantee Callout */}
-        <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/90 text-xs text-slate-600 space-y-1.5">
-          <div className="flex items-center gap-2 font-bold text-slate-900">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>Strict Zero-Contact Security Architecture</span>
-          </div>
-          <p className="leading-relaxed text-slate-600">
-            CyberSafe treats every submitted URL strictly as an untrusted text string. We <strong>never visit, crawl, fetch, render, or execute</strong> the target website, and no data is sent to external advertising networks or commercial scanners. All evaluation runs 100% locally inside your web browser.
-          </p>
-        </div>
-      </Card>
+          {/* Extracted Links & Pretext Pattern Summary */}
+          {analyzedMessage && (
+            <div className="space-y-4 pt-4 border-t border-slate-200">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Badge variant={analyzedMessage.linkCount > 0 ? 'warning' : 'safe'} size="md">
+                    {analyzedMessage.linkCount} {analyzedMessage.linkCount === 1 ? 'Link Detected' : 'Links Detected'}
+                  </Badge>
+                  {analyzedMessage.detectedPatterns.hasUrgency && (
+                    <Badge variant="danger" size="sm">
+                      Urgency Pretext Detected
+                    </Badge>
+                  )}
+                  {analyzedMessage.detectedPatterns.hasFinancialPretext && (
+                    <Badge variant="warning" size="sm">
+                      Financial / KYC Terms
+                    </Badge>
+                  )}
+                  {analyzedMessage.detectedPatterns.hasSuspiciousShortener && (
+                    <Badge variant="warning" size="sm">
+                      URL Shortener Masking
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {analyzedMessage.linkCount === 0 ? (
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600">
+                  No web links were detected in the pasted text. You can paste a message containing an address or switch to the &quot;Inspect Single URL&quot; tab.
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Extracted Links ({analyzedMessage.linkCount}):
+                  </h4>
+                  <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden bg-white">
+                    {analyzedMessage.extractedUrls.map((link, idx) => (
+                      <div key={link.id} className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                              Link #{idx + 1}
+                            </span>
+                            <span className="text-xs font-mono font-bold text-slate-900 break-all">
+                              {link.extractedUrl}
+                            </span>
+                          </div>
+                          {link.normalizedUrl !== link.extractedUrl && (
+                            <div className="text-[11px] text-slate-500 font-mono pl-1">
+                              Normalized target: {link.normalizedUrl}
+                            </div>
+                          )}
+                        </div>
+
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => handleInspectExtractedLink(link.normalizedUrl)}
+                          icon={<Search className="w-3.5 h-3.5" />}
+                          className="shrink-0 font-bold text-xs"
+                        >
+                          Inspect Link Risk
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* AUTOMATED QA TEST SUITE DRAWER */}
       {showTestSuite && qaResults && (
@@ -340,7 +549,7 @@ export const DetectPage: React.FC<DetectPageProps> = ({ onNavigateToReport }) =>
         </Card>
       )}
 
-      {/* CyberSafe Risk Assessment Results Display */}
+      {/* CyberSafe Risk Assessment Results Display (Phase 8) */}
       {assessment && (
         <div className="space-y-8 animate-in fade-in duration-200">
           {/* Main Assessment Header Card */}
@@ -354,10 +563,10 @@ export const DetectPage: React.FC<DetectPageProps> = ({ onNavigateToReport }) =>
             }`}
           >
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-              <div className="space-y-3.5">
+              <div className="space-y-3.5 flex-1">
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                    Transparent Heuristic Assessment
+                    CyberSafe Risk Assessment
                   </span>
 
                   <Badge
@@ -374,22 +583,40 @@ export const DetectPage: React.FC<DetectPageProps> = ({ onNavigateToReport }) =>
                   </Badge>
 
                   <span className="text-xs font-bold px-2.5 py-0.5 rounded-md bg-white border border-slate-200 text-slate-800 shadow-2xs">
-                    Score: {assessment.riskScore} / 100
+                    Combined Risk Score: {assessment.riskScore} / 100
+                  </span>
+
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-white/80 border border-slate-200 text-slate-600 shadow-2xs">
+                    Structural Score: {assessment.structuralScore}/100
                   </span>
                 </div>
 
-                {/* Plain-English Explanation */}
+                {/* Plain-English Assessment Title */}
                 <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 leading-snug">
-                  {assessment.riskLevel === 'High Risk'
-                    ? 'Elevated Risk: Multiple Deceptive Characteristics Detected'
+                  {assessment.reputationReport.status === 'KNOWN PHISHING'
+                    ? 'High Risk: Known Phishing Domain Detected'
+                    : assessment.reputationReport.status === 'KNOWN MALWARE'
+                    ? 'High Risk: Known Malware Distribution Channel'
+                    : assessment.riskLevel === 'High Risk'
+                    ? 'High Risk: Multiple Deceptive Indicators Detected'
                     : assessment.riskLevel === 'Medium Risk'
-                    ? 'Caution Advised: Unverified or Ambiguous Domain Signals'
-                    : 'Low Risk: Conforms to Standard Web Security Conventions'}
+                    ? 'Potentially Suspicious: Caution Advised'
+                    : 'No Known Threat Detected by Available Checks'}
                 </h2>
 
                 <p className="text-xs sm:text-sm text-slate-700 max-w-3xl leading-relaxed font-medium">
                   {assessment.explanation}
                 </p>
+
+                {/* Normalization Alert Banner if Input was normalized */}
+                {assessment.wasNormalized && (
+                  <div className="p-2.5 rounded-lg bg-blue-50/90 border border-blue-200 text-xs text-blue-900 flex items-center gap-2">
+                    <Info className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span>
+                      <strong>Input Normalization Note:</strong> {assessment.normalizationNote || 'URL was normalized to standard web format for inspection.'}
+                    </span>
+                  </div>
+                )}
 
                 {/* Technical Coordinates Strip */}
                 {assessment.isValid && (
@@ -427,6 +654,12 @@ export const DetectPage: React.FC<DetectPageProps> = ({ onNavigateToReport }) =>
                       </div>
                     )}
 
+                    {assessment.isShortenedUrl && (
+                      <div className="bg-amber-100 text-amber-900 px-3 py-1.5 rounded-lg border border-amber-300 font-bold shadow-2xs">
+                        <span>Shortened Link (Destination Masked)</span>
+                      </div>
+                    )}
+
                     {assessment.subdomainCount > 0 && (
                       <div className={`px-3 py-1.5 rounded-lg border shadow-2xs ${
                         assessment.subdomainCount >= 3 ? 'bg-amber-100 text-amber-900 border-amber-300 font-bold' : 'bg-white/90 text-slate-700 border-slate-200'
@@ -442,235 +675,288 @@ export const DetectPage: React.FC<DetectPageProps> = ({ onNavigateToReport }) =>
                 )}
               </div>
 
-              {/* High-Risk Urgent Action Box */}
-              {assessment.riskLevel === 'High Risk' && (
-                <div className="shrink-0 bg-white p-5 rounded-2xl border-2 border-rose-400 shadow-md space-y-3 max-w-sm">
-                  <div className="flex items-center gap-2 text-rose-700 font-extrabold text-sm">
-                    <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0" />
-                    <span>URGENT SAFETY ADVISORY</span>
+              {/* Action Side Box */}
+              <div className="shrink-0 flex flex-col gap-2.5 max-w-sm w-full lg:w-auto">
+                {assessment.riskLevel === 'High Risk' && (
+                  <div className="bg-white p-4 rounded-xl border-2 border-rose-400 shadow-sm space-y-2">
+                    <div className="flex items-center gap-2 text-rose-700 font-extrabold text-xs">
+                      <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                      <span>URGENT SAFETY ADVISORY</span>
+                    </div>
+                    <p className="text-xs text-slate-700 leading-relaxed">
+                      Do NOT enter passwords, OTPs, or financial details. If you submitted credentials to this site, change them immediately and contact your institution.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={onNavigateToReport}
+                      className="w-full text-xs font-bold text-rose-700 border-rose-300 hover:bg-rose-50"
+                    >
+                      Report This Link in Incident Helper
+                    </Button>
                   </div>
-                  <p className="text-xs text-rose-950 font-bold leading-relaxed">
-                    Do not enter passwords, OTPs, UPI PINs, bank details, or personal identity documents on this site.
-                  </p>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    If you were tricked into submitting credentials or personal data, take immediate containment steps:
-                  </p>
+                )}
+
+                <div className="flex gap-2">
                   <Button
-                    variant="danger"
+                    variant="outline"
                     size="sm"
-                    className="w-full text-xs font-bold"
-                    onClick={onNavigateToReport}
-                    icon={<ArrowRight className="w-3.5 h-3.5" />}
-                    iconPosition="right"
+                    onClick={handleCopySummary}
+                    icon={copiedSummary ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    className="flex-1 text-xs"
                   >
-                    Open Incident Containment Guide
+                    {copiedSummary ? 'Copied Summary' : 'Copy Assessment'}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClear}
+                    icon={<RotateCcw className="w-3.5 h-3.5" />}
+                    className="text-xs"
+                  >
+                    Inspect Another
                   </Button>
                 </div>
-              )}
+              </div>
             </div>
           </Card>
 
-          {/* Transparent Score Contribution Ledger */}
-          {assessment.scoreBreakdown.length > 0 && (
-            <Card className="p-5 sm:p-6 bg-slate-900 text-white space-y-4 shadow-sm">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-blue-400" />
-                    <h3 className="text-sm sm:text-base font-bold text-white">
-                      Transparent Score Composition Ledger
-                    </h3>
-                  </div>
-                  <p className="text-xs text-slate-400">
-                    Each risk point corresponds directly to a detected characteristic. No random or probabilistic scoring.
-                  </p>
-                </div>
-                <span className="text-xs font-bold font-mono bg-blue-500/20 text-blue-300 px-3 py-1 rounded-lg border border-blue-400/30">
-                  Total Points: {assessment.riskScore} / 100
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {assessment.scoreBreakdown.map((item, idx) => (
-                  <div 
-                    key={idx}
-                    className="p-3 rounded-xl bg-slate-800/80 border border-slate-700/80 space-y-1 text-xs"
-                  >
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="font-bold text-slate-200 line-clamp-1">{item.indicatorName}</span>
-                      <span className="font-mono font-bold text-rose-400 shrink-0 bg-rose-950/60 px-1.5 py-0.5 rounded border border-rose-800/50">
-                        +{item.points} pts
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-400 line-clamp-2">
-                      {item.reason}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
-
-          {/* Indicators Breakdown & Transparent Explanations */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Left: Detailed Indicators List */}
-            <div className="lg:col-span-7 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <FileCode className="w-4 h-4 text-blue-600" />
-                  <span>Detected Indicators & Explanations ({filteredIndicators.length})</span>
+          {/* Verification Checks Grid */}
+          <Card className="p-6 space-y-4 shadow-sm border-slate-200 bg-white">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="space-y-0.5">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Radar className="w-4 h-4 text-blue-600" />
+                  <span>Checks Performed & Layered Verification Status</span>
                 </h3>
+                <p className="text-xs text-slate-500">
+                  Assessment results are deterministic and based on explicit evidence rather than arbitrary numbers.
+                </p>
+              </div>
+            </div>
 
-                {/* Filter pills */}
-                <div className="flex items-center gap-1 overflow-x-auto py-1 text-xs">
-                  {[
-                    { id: 'all', label: 'All' },
-                    { id: 'protocol', label: 'Protocol' },
-                    { id: 'host', label: 'Host & Domain' },
-                    { id: 'syntax', label: 'Syntax' },
-                    { id: 'path', label: 'Path & File' },
-                    { id: 'query', label: 'Query' }
-                  ].map(tab => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveIndicatorFilter(tab.id)}
-                      className={`px-2 py-0.5 rounded-md font-medium transition-colors cursor-pointer text-[11px] ${
-                        activeIndicatorFilter === tab.id
-                          ? 'bg-slate-900 text-white font-semibold'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {assessment.checksPerformed.map((chk) => (
+                <div
+                  key={chk.id}
+                  className={`p-3.5 rounded-xl border flex items-start gap-3 transition-colors ${
+                    chk.status === 'passed'
+                      ? 'bg-emerald-50/50 border-emerald-200'
+                      : chk.status === 'warning'
+                      ? 'bg-amber-50/50 border-amber-200'
+                      : chk.status === 'failed'
+                      ? 'bg-rose-50/50 border-rose-200'
+                      : 'bg-slate-50 border-slate-200'
+                  }`}
+                >
+                  <div className="mt-0.5 shrink-0">
+                    {chk.status === 'passed' ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    ) : chk.status === 'warning' ? (
+                      <AlertTriangle className="w-4 h-4 text-amber-600" />
+                    ) : chk.status === 'failed' ? (
+                      <AlertOctagon className="w-4 h-4 text-rose-600" />
+                    ) : (
+                      <Info className="w-4 h-4 text-slate-400" />
+                    )}
+                  </div>
+                  <div className="space-y-0.5 text-xs">
+                    <div className="font-bold text-slate-900">{chk.name}</div>
+                    <div className="text-[11px] text-slate-600 leading-snug">{chk.detail}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Threat Intelligence / Reputation Panel */}
+          <Card className="p-6 space-y-3.5 shadow-sm border-slate-200 bg-white">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <Globe className="w-4 h-4 text-indigo-600" />
+                <h3 className="text-sm font-bold text-slate-900">
+                  Threat Intelligence & Reputation Status
+                </h3>
+              </div>
+              <Badge
+                variant={
+                  assessment.reputationReport.status.startsWith('KNOWN')
+                    ? 'danger'
+                    : assessment.reputationReport.status === 'SUSPICIOUS'
+                    ? 'warning'
+                    : assessment.reputationReport.isAvailable
+                    ? 'safe'
+                    : 'neutral'
+                }
+                size="sm"
+              >
+                {assessment.reputationReport.status}
+              </Badge>
+            </div>
+
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs text-slate-700">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <strong>Provider:</strong> {assessment.reputationReport.provider}
+                </div>
+                <div>
+                  <strong>Confidence:</strong> {assessment.reputationReport.sourceConfidence || 'Medium'}
+                </div>
+              </div>
+
+              {assessment.reputationReport.details && (
+                <div className="text-slate-600 leading-relaxed">
+                  {assessment.reputationReport.details}
+                </div>
+              )}
+
+              {assessment.reputationReport.threatTypes.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                  <span className="font-bold text-slate-700">Flagged Categories:</span>
+                  {assessment.reputationReport.threatTypes.map((t, idx) => (
+                    <span key={idx} className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-[10px] font-mono font-bold">
+                      {t}
+                    </span>
                   ))}
                 </div>
+              )}
+
+              <div className="text-[11px] text-slate-500 pt-1 border-t border-slate-200/80 leading-relaxed">
+                <strong>Important Principle:</strong> {assessment.reputationReport.disclaimer}
+              </div>
+            </div>
+          </Card>
+
+          {/* Structural Indicators Table */}
+          <Card className="p-6 sm:p-8 space-y-6 shadow-sm border-slate-200 bg-white">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-blue-600" />
+                  <span>Detected Structural Indicators ({assessment.indicators.length})</span>
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Syntactic and compositional signals evaluated without executing server-side code.
+                </p>
               </div>
 
-              <div className="space-y-3">
-                {filteredIndicators.map((ind, idx) => (
-                  <Card
-                    key={idx}
-                    className={`p-5 border transition-all space-y-3 ${
-                      ind.status === 'risk'
-                        ? 'bg-rose-50/40 border-rose-200'
-                        : ind.status === 'warning'
-                        ? 'bg-amber-50/40 border-amber-200'
-                        : 'bg-emerald-50/40 border-emerald-200'
+              {/* Indicator Category Filter Pills */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {['all', 'protocol', 'host', 'path', 'query', 'syntax', 'general'].map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveIndicatorFilter(cat)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium uppercase transition-colors cursor-pointer ${
+                      activeIndicatorFilter === cat
+                        ? 'bg-blue-600 text-white font-bold'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                     }`}
                   >
-                    <div className="space-y-2">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-2 font-bold text-sm text-slate-900">
-                          {ind.iconType === 'danger' && (
-                            <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                          )}
-                          {ind.iconType === 'alert' && (
-                            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                          )}
-                          {ind.iconType === 'check' && (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                          )}
-                          <span>{ind.name}</span>
-                        </div>
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-                        {ind.impactPoints > 0 ? (
-                          <span className="text-xs font-bold font-mono text-rose-700 bg-white px-2 py-0.5 rounded border border-rose-200 shrink-0 shadow-2xs">
-                            +{ind.impactPoints} Risk Pts
-                          </span>
+            {filteredIndicators.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 rounded-xl">
+                No indicators found matching the &quot;{activeIndicatorFilter}&quot; category filter.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 overflow-hidden">
+                {filteredIndicators.map((ind, idx) => (
+                  <div key={idx} className="p-4 sm:p-5 space-y-2 hover:bg-slate-50/50 transition-colors">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        {ind.status === 'positive' ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        ) : ind.status === 'warning' ? (
+                          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
                         ) : (
-                          <span className="text-xs font-bold font-mono text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200 shrink-0 shadow-2xs">
-                            Passed (0 pts)
+                          <AlertOctagon className="w-4 h-4 text-rose-600 shrink-0" />
+                        )}
+                        <span className="text-sm font-bold text-slate-900">{ind.name}</span>
+                        {ind.category && (
+                          <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                            {ind.category}
                           </span>
                         )}
                       </div>
 
-                      <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
-                        {ind.description}
-                      </p>
-
-                      {/* Explicit "Why This Matters" Section for Every Indicator */}
-                      <div className="p-3 rounded-xl bg-white border border-slate-200/80 space-y-1 text-xs">
-                        <span className="font-bold text-slate-800 flex items-center gap-1 text-[11px] uppercase tracking-wider">
-                          <HelpCircle className="w-3.5 h-3.5 text-blue-600" />
-                          Why This Indicator Matters:
-                        </span>
-                        <p className="text-slate-600 leading-relaxed">
-                          {ind.whyItMatters}
-                        </p>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant={
+                            ind.severity === 'critical' || ind.severity === 'high'
+                              ? 'danger'
+                              : ind.severity === 'medium'
+                              ? 'warning'
+                              : ind.severity === 'low'
+                              ? 'neutral'
+                              : 'safe'
+                          }
+                          size="sm"
+                        >
+                          {ind.severity.toUpperCase()}
+                        </Badge>
+                        {ind.impactPoints > 0 && (
+                          <span className="text-xs font-mono font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                            +{ind.impactPoints} pts
+                          </span>
+                        )}
                       </div>
                     </div>
-                  </Card>
+
+                    <p className="text-xs text-slate-600 leading-relaxed pl-6">
+                      {ind.description}
+                    </p>
+
+                    <div className="pl-6 space-y-1 text-xs">
+                      <div className="text-slate-500">
+                        <strong className="text-slate-700">Why It Matters:</strong> {ind.whyItMatters}
+                      </div>
+                      {ind.recommendation && (
+                        <div className="text-blue-800 font-medium">
+                          <strong>Action:</strong> {ind.recommendation}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 ))}
               </div>
-            </div>
+            )}
+          </Card>
 
-            {/* Right: Recommendations, Redirect Policy & Technical Limitations */}
-            <div className="lg:col-span-5 space-y-5">
-              {/* Recommendations */}
-              <Card className="p-5 sm:p-6 space-y-4 border-slate-200 bg-white">
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  <span>Actionable Defensive Guidance</span>
-                </h3>
+          {/* Actionable Recommendations & Guidance */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className="p-6 space-y-3.5 shadow-sm border-slate-200 bg-white">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-600" />
+                <span>Recommended Practical Actions</span>
+              </h3>
+              <ul className="space-y-2 text-xs text-slate-700">
+                {assessment.recommendations.map((rec, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600 mt-1.5 shrink-0" />
+                    <span>{rec}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
 
-                <ul className="space-y-3">
-                  {assessment.recommendations.map((rec, idx) => (
-                    <li key={idx} className="flex items-start gap-2.5 text-xs sm:text-sm text-slate-700">
-                      <span className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
-                        {idx + 1}
-                      </span>
-                      <span className="leading-relaxed font-medium">{rec}</span>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-
-              {/* Crucial Redirect Boundary Notice */}
-              <Card className="p-5 space-y-2.5 bg-amber-50/60 border-amber-200 text-xs text-amber-950">
-                <div className="font-bold text-amber-900 flex items-center gap-1.5 text-xs">
-                  <AlertOctagon className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>Architectural Boundary: HTTP Redirect Notice</span>
-                </div>
-                <p className="leading-relaxed text-amber-900/90 text-xs">
-                  {assessment.redirectNotice}
-                </p>
-              </Card>
-
-              {/* Transparent Scoring Scale Guide */}
-              <Card className="p-5 space-y-3 bg-slate-50 border-slate-200 text-xs text-slate-600">
-                <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                  <Info className="w-4 h-4 text-blue-600" />
-                  <span>Heuristic Score Bands</span>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center py-1 border-b border-slate-200/60 font-medium">
-                    <span className="text-emerald-700 font-bold">0 – 29</span>
-                    <span>Low Risk (Standard domain, HTTPS, clean syntax)</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1 border-b border-slate-200/60 font-medium">
-                    <span className="text-amber-700 font-bold">30 – 59</span>
-                    <span>Medium Risk (Shorteners, auth keywords, deep subdomains)</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1 font-medium">
-                    <span className="text-rose-700 font-bold">60 – 100</span>
-                    <span>High Risk (Raw IP, unencrypted, @ symbol, malware extensions)</span>
-                  </div>
-                </div>
-              </Card>
-
-              {/* Technical Limitations Notice */}
-              <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2 text-xs text-slate-600 shadow-2xs">
-                <span className="font-bold text-slate-800 flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-slate-500" />
-                  Important Technical Limitations:
-                </span>
-                <ul className="space-y-1.5 text-[11px] text-slate-500 list-disc pl-4">
-                  {assessment.limitations.map((lim, i) => (
-                    <li key={i} className="leading-relaxed">{lim}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+            <Card className="p-6 space-y-3.5 shadow-sm border-slate-200 bg-white">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <HelpCircle className="w-4 h-4 text-slate-600" />
+                <span>Detector Boundaries & Honest Limitations</span>
+              </h3>
+              <ul className="space-y-2 text-xs text-slate-600">
+                {assessment.limitations.map((lim, i) => (
+                  <li key={i} className="flex items-start gap-2 leading-relaxed">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400 mt-1.5 shrink-0" />
+                    <span>{lim}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
           </div>
         </div>
       )}

@@ -22,7 +22,9 @@ import {
   CreditCard,
   Link as LinkIcon,
   UserX,
-  AlertOctagon
+  AlertOctagon,
+  MapPin,
+  Building2
 } from 'lucide-react';
 import { EMERGENCY_SITUATIONS } from '../../data/emergencyHelperData';
 import { INDIA_REPORTING_INFO } from '../../data/reportData';
@@ -34,11 +36,13 @@ import { Button } from '../common/Button';
 interface EmergencyHelperProps {
   initialSituationId?: EmergencySituationId;
   onSelectReportingCategory?: (categoryId: string) => void;
+  onFindNearbyHelp?: () => void;
 }
 
 export const EmergencyHelper: React.FC<EmergencyHelperProps> = ({
   initialSituationId,
-  onSelectReportingCategory
+  onSelectReportingCategory,
+  onFindNearbyHelp
 }) => {
   const [selectedId, setSelectedId] = useState<EmergencySituationId | null>(() => {
     if (initialSituationId && EMERGENCY_SITUATIONS.some(s => s.id === initialSituationId)) {
@@ -598,6 +602,36 @@ Official Government Portal: https://cybercrime.gov.in/
                       )}
                     </div>
                   ))}
+
+                  {/* Physical Police / Cybercrime Desk Support Option */}
+                  <div className="p-4 rounded-xl border border-slate-200 bg-white space-y-2.5 mt-3 shadow-2xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-blue-600" />
+                        <span className="font-bold text-sm text-slate-900">
+                          Physical Police / Cybercrime Desk Assistance
+                        </span>
+                      </div>
+                      {onFindNearbyHelp && (
+                        <button
+                          type="button"
+                          onClick={onFindNearbyHelp}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition cursor-pointer self-start sm:self-auto shadow-2xs"
+                        >
+                          <MapPin className="w-3.5 h-3.5 text-blue-400" />
+                          <span>Find Nearby Help on Map</span>
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-600 leading-relaxed font-normal">
+                      If you require in-person assistance, need to submit physical hardware for forensic imaging, or want to register a physical Zero FIR, locate nearby police stations using our interactive map.
+                    </p>
+                    {(selectedSituation.id === 'money-stolen' || selectedSituation.id === 'shared-otp') && (
+                      <div className="text-[11px] text-rose-800 bg-rose-50 p-2.5 rounded-lg border border-rose-200 font-medium leading-relaxed">
+                        <strong>Act quickly for financial cyber fraud:</strong> In-person station visits are not immediately mandatory to initiate interbank account freezes. Your primary and most urgent action is calling the national helpline <strong>1930</strong> and lodging a complaint at <strong>cybercrime.gov.in</strong>.
+                      </div>
+                    )}
+                  </div>
                 </div>
               </Card>
             )}
