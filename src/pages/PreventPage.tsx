@@ -27,9 +27,15 @@ const STORAGE_KEY = 'cybersafe_checklist_completed';
 
 interface PreventPageProps {
   onNavigateToReport?: () => void;
+  initialAreaId?: string;
+  initialSearchQuery?: string;
 }
 
-export const PreventPage: React.FC<PreventPageProps> = ({ onNavigateToReport }) => {
+export const PreventPage: React.FC<PreventPageProps> = ({
+  onNavigateToReport,
+  initialAreaId,
+  initialSearchQuery,
+}) => {
   const { user } = useAuth();
 
   // Completed items state (backed by localStorage and optionally synced to Firestore user profile)
@@ -60,6 +66,22 @@ export const PreventPage: React.FC<PreventPageProps> = ({ onNavigateToReport }) 
 
   // Active selected methodology for the deep modal
   const [selectedMethodology, setSelectedMethodology] = useState<PreventionMethodology | null>(null);
+
+  useEffect(() => {
+    if (initialSearchQuery) {
+      setSearchQuery(initialSearchQuery);
+      setViewMode('methodologies');
+    }
+    if (initialAreaId) {
+      const match = PREVENTION_METHODOLOGIES.find(
+        (m) => m.areaId === initialAreaId || m.id === initialAreaId
+      );
+      if (match) {
+        setSelectedMethodology(match);
+        setViewMode('methodologies');
+      }
+    }
+  }, [initialAreaId, initialSearchQuery]);
 
   // Sync state to localStorage on change
   useEffect(() => {

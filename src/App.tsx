@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { PageType } from './types';
+import React, { useState, useEffect } from 'react';
+import { PageType, QuizCategory } from './types';
 import { AuthProvider } from './context/AuthContext';
+import { AiGuideProvider, useAiGuide } from './context/AiGuideContext';
 import { Navbar } from './components/layout/Navbar';
 import { Footer } from './components/layout/Footer';
 import { EmergencyModal } from './components/common/EmergencyModal';
@@ -14,24 +15,56 @@ import { PrivacyDisclaimerPage } from './pages/PrivacyDisclaimerPage';
 import { AuthPage } from './pages/AuthPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { AdminPage } from './pages/AdminPage';
+import { AiGuideDrawer } from './components/aiGuide/AiGuideDrawer';
+import { AiGuideFloatingButton } from './components/aiGuide/AiGuideFloatingButton';
+import { AiGuideActionConfirmationModal } from './components/aiGuide/AiGuideActionConfirmationModal';
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState<PageType>('home');
   const [learnSearchQuery, setLearnSearchQuery] = useState<string>('');
   const [reportIncidentId, setReportIncidentId] = useState<string | undefined>(undefined);
   const [reportUrl, setReportUrl] = useState<string | undefined>(undefined);
+  const [detectUrl, setDetectUrl] = useState<string | undefined>(undefined);
+  const [preventAreaId, setPreventAreaId] = useState<string | undefined>(undefined);
+  const [quizCategory, setQuizCategory] = useState<string | undefined>(undefined);
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
 
-  const navigateTo = (page: PageType, queryOrIncidentId?: string, url?: string) => {
+  const { setActiveContextPage, setOnNavigate } = useAiGuide();
+
+  // Sync active page context with AI Guide
+  useEffect(() => {
+    setActiveContextPage(currentPage);
+  }, [currentPage, setActiveContextPage]);
+
+  const navigateTo = (
+    page: PageType,
+    queryOrIncidentId?: string,
+    url?: string,
+    areaId?: string,
+    category?: string
+  ) => {
     if (page === 'learn') {
       setLearnSearchQuery(queryOrIncidentId || '');
     } else if (page === 'report') {
       setReportIncidentId(queryOrIncidentId);
       setReportUrl(url);
+    } else if (page === 'detect') {
+      setDetectUrl(url);
+    } else if (page === 'prevent') {
+      setPreventAreaId(areaId || queryOrIncidentId);
+    } else if (page === 'quiz') {
+      setQuizCategory(category || queryOrIncidentId);
     }
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // Wire AI Guide navigation callback
+  useEffect(() => {
+    setOnNavigate((page, queryOrIncidentId, url, areaId, category) => {
+      navigateTo(page, queryOrIncidentId, url, areaId, category);
+    });
+  }, [setOnNavigate]);
 
   const handleOpenEmergency = () => {
     setIsEmergencyModalOpen(true);
@@ -70,12 +103,15 @@ function AppContent() {
 
         {currentPage === 'prevent' && (
           <PreventPage
+            initialAreaId={preventAreaId}
+            initialSearchQuery={learnSearchQuery}
             onNavigateToReport={() => navigateTo('report')}
           />
         )}
 
         {currentPage === 'detect' && (
           <DetectPage
+            initialUrl={detectUrl}
             onNavigateToReport={(incidentId, url) => navigateTo('report', incidentId, url)}
           />
         )}
@@ -89,6 +125,7 @@ function AppContent() {
 
         {currentPage === 'quiz' && (
           <QuizPage
+            initialCategory={quizCategory}
             onNavigateToLearn={() => navigateTo('learn')}
             onNavigateToPrevent={() => navigateTo('prevent')}
           />
@@ -144,6 +181,11 @@ function AppContent() {
           navigateTo('report', scenarioOrCategoryId);
         }}
       />
+
+      {/* CyberSafe AI Guide Components */}
+      <AiGuideDrawer />
+      <AiGuideFloatingButton />
+      <AiGuideActionConfirmationModal />
     </div>
   );
 }
@@ -151,7 +193,9 @@ function AppContent() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <AiGuideProvider>
+        <AppContent />
+      </AiGuideProvider>
     </AuthProvider>
   );
 }

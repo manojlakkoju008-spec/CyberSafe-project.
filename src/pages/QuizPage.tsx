@@ -35,6 +35,7 @@ import { db } from '../services/firebase';
 interface QuizPageProps {
   onNavigateToLearn: () => void;
   onNavigateToPrevent: () => void;
+  initialCategory?: QuizCategory | string;
 }
 
 type QuizStage = 'select_mode' | 'in_progress' | 'results' | 'review';
@@ -42,6 +43,7 @@ type QuizStage = 'select_mode' | 'in_progress' | 'results' | 'review';
 export const QuizPage: React.FC<QuizPageProps> = ({
   onNavigateToLearn,
   onNavigateToPrevent,
+  initialCategory,
 }) => {
   const { user } = useAuth();
 
@@ -51,9 +53,18 @@ export const QuizPage: React.FC<QuizPageProps> = ({
 
   // Configuration state
   const [activeStage, setActiveStage] = useState<QuizStage>('select_mode');
-  const [selectedMode, setSelectedMode] = useState<QuizMode>('quick');
-  const [selectedCategory, setSelectedCategory] = useState<QuizCategory | null>('Phishing');
+  const [selectedMode, setSelectedMode] = useState<QuizMode>(initialCategory ? 'category' : 'quick');
+  const [selectedCategory, setSelectedCategory] = useState<QuizCategory | null>(
+    (initialCategory as QuizCategory) || 'Phishing'
+  );
   const [selectedDifficulty, setSelectedDifficulty] = useState<'all' | QuizDifficulty>('all');
+
+  useEffect(() => {
+    if (initialCategory) {
+      setSelectedCategory(initialCategory as QuizCategory);
+      setSelectedMode('category');
+    }
+  }, [initialCategory]);
 
   // Active Session state
   const [sessionQuestions, setSessionQuestions] = useState<QuizQuestion[]>([]);

@@ -35,6 +35,7 @@ import { IconHelper } from '../components/common/IconHelper';
 import { MethodologyViewer } from '../components/learn/MethodologyViewer';
 import { ScenarioViewer } from '../components/learn/ScenarioViewer';
 import { ThreatDeepDiveModal } from '../components/learn/ThreatDeepDiveModal';
+import { useAiGuide } from '../context/AiGuideContext';
 
 interface LearnPageProps {
   initialSearchQuery?: string;
@@ -47,6 +48,7 @@ export const LearnPage: React.FC<LearnPageProps> = ({
   initialSearchQuery = '',
   onNavigateToReport 
 }) => {
+  const { openGuide } = useAiGuide();
   const [activeTab, setActiveTab] = useState<LearnTab>('threats');
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -184,6 +186,15 @@ export const LearnPage: React.FC<LearnPageProps> = ({
         <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
           Explore structured threat catalogs, actionable decision methodologies, interactive attack simulations, and essential step-by-step security checklists.
         </p>
+        <div className="pt-1">
+          <button
+            onClick={() => openGuide('Explain cybersecurity fundamentals and how to protect my digital identity in simple terms.')}
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-blue-800 border border-blue-200 text-xs font-semibold cursor-pointer transition-all shadow-2xs"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+            <span>Need a personalized concept explanation? Ask CyberSafe AI Guide</span>
+          </button>
+        </div>
       </div>
 
       {/* Main Tab Navigation */}

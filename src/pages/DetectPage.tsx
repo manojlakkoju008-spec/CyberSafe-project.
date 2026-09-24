@@ -27,7 +27,8 @@ import {
   MessageSquare,
   ExternalLink,
   Radar,
-  FileText
+  FileText,
+  Sparkles
 } from 'lucide-react';
 import { UrlScanAssessment } from '../types';
 import { analyzeUrlSafety } from '../utils/detectorEngine';
@@ -36,9 +37,11 @@ import { DETECTOR_TEST_CASES, DetectorTestCase } from '../data/detectorTestCases
 import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
+import { useAiGuide } from '../context/AiGuideContext';
 
 interface DetectPageProps {
   onNavigateToReport: (incidentId?: string, url?: string) => void;
+  initialUrl?: string;
 }
 
 interface TestRunResult {
@@ -49,7 +52,8 @@ interface TestRunResult {
   timeMs: number;
 }
 
-export const DetectPage: React.FC<DetectPageProps> = ({ onNavigateToReport }) => {
+export const DetectPage: React.FC<DetectPageProps> = ({ onNavigateToReport, initialUrl }) => {
+  const { openGuide } = useAiGuide();
   const [activeMode, setActiveMode] = useState<'url' | 'message'>('url');
   
   // URL Input State
@@ -59,6 +63,15 @@ export const DetectPage: React.FC<DetectPageProps> = ({ onNavigateToReport }) =>
   const [activeIndicatorFilter, setActiveIndicatorFilter] = useState<string>('all');
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedSummary, setCopiedSummary] = useState(false);
+
+  // Auto-analyze initialUrl if passed from AI Guide or other page
+  React.useEffect(() => {
+    if (initialUrl && initialUrl.trim()) {
+      setUrlInput(initialUrl.trim());
+      setActiveMode('url');
+      handleAnalyzeUrl(initialUrl.trim());
+    }
+  }, [initialUrl]);
 
   // Message / Text Analysis State (Phase 9)
   const [messageInput, setMessageInput] = useState('');
@@ -197,6 +210,16 @@ Notice: No known threat detected does not guarantee safety.`;
         <p className="text-xs sm:text-sm text-slate-500 leading-relaxed max-w-3xl">
           CyberSafe treats every address strictly as an <strong>untrusted text string</strong>. We never visit, crawl, render inside an iframe, or execute scripts from the target website. All structural evaluation runs client-side with zero tracking.
         </p>
+
+        <div className="pt-1">
+          <button
+            onClick={() => openGuide('How do I analyze whether this URL or message is dangerous?')}
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-blue-800 border border-blue-200 text-xs font-semibold cursor-pointer transition-all shadow-2xs"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+            <span>Unsure about a link? Ask CyberSafe AI Guide</span>
+          </button>
+        </div>
       </div>
 
       {/* Input Mode Selector Tabs */}

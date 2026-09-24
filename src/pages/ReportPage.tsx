@@ -49,6 +49,10 @@ export const ReportPage: React.FC<ReportPageProps> = ({
   // Sync if initialIncidentId or initialUrl prop updates
   useEffect(() => {
     if (initialIncidentId) {
+      if (initialIncidentId === 'nearby') {
+        setTimeout(() => scrollToElement('nearby-help-dashboard'), 300);
+        return;
+      }
       const match = REPORT_CATEGORIES.find(
         (c) => c.id === initialIncidentId || c.title.toLowerCase().includes(initialIncidentId.toLowerCase())
       );

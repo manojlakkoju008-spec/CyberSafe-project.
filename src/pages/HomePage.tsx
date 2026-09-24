@@ -17,13 +17,16 @@ import {
   Eye,
   CheckCircle2,
   Clock,
-  Zap
+  Zap,
+  Sparkles,
+  Bot
 } from 'lucide-react';
 import { PageType } from '../types';
 import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
 import { THREATS_DATA } from '../data/threatsData';
+import { useAiGuide } from '../context/AiGuideContext';
 
 interface HomePageProps {
   onNavigate: (page: PageType, filterQuery?: string) => void;
@@ -31,6 +34,7 @@ interface HomePageProps {
 }
 
 export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onOpenEmergency }) => {
+  const { openGuide } = useAiGuide();
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -164,6 +168,65 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate, onOpenEmergency 
               >
                 I Suspect an Active Breach
               </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CyberSafe AI Guide Intelligent Assistant Section */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-lg border border-blue-800/40 relative overflow-hidden">
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="space-y-3 max-w-2xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-bold border border-blue-400/30">
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <span>Intelligent Cybersecurity & Incident Layer</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+                Meet CyberSafe AI Guide
+              </h2>
+              <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
+                Not sure what to do? Describe any suspicious situation, scam message, or incident. CyberSafe AI Guide provides calm, structured steps, preserves necessary evidence, and guides you to the right tools.
+              </p>
+
+              {/* Sample Prompt Chips */}
+              <div className="pt-2">
+                <span className="text-xs text-blue-200 font-semibold block mb-2">Try asking directly:</span>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    'I received a message saying my bank account will be blocked.',
+                    'I lost money through UPI.',
+                    'My Instagram account was hacked.',
+                    'I clicked a suspicious link.',
+                    'I gave someone my OTP by mistake.',
+                    'Teach me how phishing works.',
+                  ].map((sample, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => openGuide(sample)}
+                      className="text-xs bg-slate-800/90 hover:bg-blue-600/90 text-slate-200 hover:text-white px-3 py-1.5 rounded-xl border border-slate-700 hover:border-blue-400 transition-all cursor-pointer text-left"
+                    >
+                      "{sample}"
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="shrink-0 flex flex-col sm:flex-row lg:flex-col gap-3">
+              <button
+                onClick={() => openGuide()}
+                className="px-6 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg hover:shadow-blue-500/25 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+              >
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                <span>Open CyberSafe AI Guide</span>
+              </button>
+              <button
+                onClick={() => openGuide('I think I have been scammed. What should I do right now?')}
+                className="px-6 py-3 rounded-2xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white font-semibold text-xs border border-slate-700 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>Emergency Incident Triage</span>
+              </button>
             </div>
           </div>
         </div>

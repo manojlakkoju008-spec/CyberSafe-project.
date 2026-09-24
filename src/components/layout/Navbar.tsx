@@ -14,10 +14,12 @@ import {
   ShieldAlert,
   LogOut,
   Lock,
+  Sparkles,
 } from 'lucide-react';
 import { PageType } from '../../types';
 import { Button } from '../common/Button';
 import { useAuth } from '../../context/AuthContext';
+import { useAiGuide } from '../../context/AiGuideContext';
 
 interface NavbarProps {
   currentPage: PageType;
@@ -33,6 +35,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const { user, firebaseUser, isAuthenticated, isAdmin, logout } = useAuth();
+  const { openGuide } = useAiGuide();
 
   const navItems: { id: PageType; label: string; icon: React.ReactNode }[] = [
     { id: 'home', label: 'Home', icon: <Home className="w-4 h-4" /> },
@@ -141,7 +144,18 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
 
           {/* Right Action & User Controls */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            {/* AI Guide Navigation Trigger */}
+            <button
+              onClick={() => openGuide()}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-blue-800 border border-blue-200/90 text-xs font-bold cursor-pointer transition-all shadow-2xs hover:shadow-xs active:scale-95 select-none"
+              title="Open CyberSafe AI Guide"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
+              <span className="hidden sm:inline">AI Guide</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+            </button>
+
             <Button
               variant="outline"
               size="sm"
@@ -256,6 +270,18 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             );
           })}
+
+          {/* Mobile AI Guide Button */}
+          <button
+            onClick={() => {
+              setMobileMenuOpen(false);
+              openGuide();
+            }}
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-800 border border-blue-200 transition-colors"
+          >
+            <Sparkles className="w-4 h-4 text-blue-600" />
+            <span>CyberSafe AI Guide</span>
+          </button>
 
           {isAdmin && (
             <button
