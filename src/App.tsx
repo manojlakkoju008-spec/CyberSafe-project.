@@ -44,11 +44,13 @@ function AppContent() {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
       {/* Navigation */}
-      <Navbar
-        currentPage={currentPage}
-        onNavigate={(p) => navigateTo(p)}
-        onOpenEmergency={handleOpenEmergency}
-      />
+      {currentPage !== 'admin' && (
+        <Navbar
+          currentPage={currentPage}
+          onNavigate={(p) => navigateTo(p)}
+          onOpenEmergency={handleOpenEmergency}
+        />
+      )}
 
       {/* Main Page Content */}
       <main className="flex-1">
@@ -132,7 +134,7 @@ function AppContent() {
       </main>
 
       {/* Footer */}
-      <Footer onNavigate={(p) => navigateTo(p)} />
+      {currentPage !== 'admin' && <Footer onNavigate={(p) => navigateTo(p)} />}
 
       {/* Emergency Triage Modal */}
       <EmergencyModal

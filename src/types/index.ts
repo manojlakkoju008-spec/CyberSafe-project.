@@ -673,3 +673,146 @@ export interface NearbySearchFilters {
   searchQuery: string;
 }
 
+// ==========================================
+// WORKSTREAM 10: PROFESSIONAL ADMIN CONTROL CENTER (RBAC & CMS)
+// ==========================================
+export type AdminRole =
+  | 'SUPER_ADMIN'
+  | 'ADMIN'
+  | 'CONTENT_EDITOR'
+  | 'LOCATION_MANAGER'
+  | 'MODERATOR'
+  | 'ANALYST';
+
+export type AdminTab =
+  | 'overview'
+  | 'users'
+  | 'content'
+  | 'learning'
+  | 'prevention'
+  | 'detection'
+  | 'reports'
+  | 'locations'
+  | 'quizzes'
+  | 'announcements'
+  | 'analytics'
+  | 'system'
+  | 'audit-logs'
+  | 'admins'
+  | 'settings';
+
+export interface AdminUserRecord {
+  uid: string;
+  email: string;
+  displayName: string;
+  role: AdminRole;
+  status: 'active' | 'suspended';
+  assignedBy: string;
+  assignedAt: string;
+  lastLoginAt?: string;
+}
+
+export type LocationVerificationStatus =
+  | 'UNVERIFIED'
+  | 'PENDING_REVIEW'
+  | 'VERIFIED'
+  | 'NEEDS_REVIEW'
+  | 'ARCHIVED';
+
+export type LocationType =
+  | 'POLICE_STATION'
+  | 'CYBERCRIME_UNIT'
+  | 'CYBER_CELL'
+  | 'GOVERNMENT_ASSISTANCE'
+  | 'OTHER_VERIFIED_HELP';
+
+export interface AdminManagedLocation {
+  id: string;
+  name: string;
+  locationType: LocationType;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+  phone?: string;
+  website?: string;
+  openingHours?: string;
+  source: string;
+  sourceUrl?: string;
+  verificationStatus: LocationVerificationStatus;
+  lastVerifiedDate?: string;
+  verifiedBy?: string;
+  notes?: string;
+  updatedAt: string;
+}
+
+export interface PlatformAnnouncement {
+  id: string;
+  title: string;
+  message: string;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  audience: 'all' | 'members' | 'students' | 'seniors';
+  status: 'active' | 'draft' | 'archived';
+  startDate?: string;
+  endDate?: string;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface PlatformSystemSettings {
+  id: string;
+  platformName: string;
+  maintenanceMode: boolean;
+  contactEmail: string;
+  supportPhone?: string;
+  maxRadiusKm: number;
+  defaultRadiusKm: number;
+  threatIntelCacheMinutes: number;
+  structuralThresholdMedium: number;
+  structuralThresholdHigh: number;
+  nationalHelplineNumber: string;
+  officialPortalUrl: string;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export interface DetailedAuditLog {
+  id: string;
+  timestamp: string;
+  actorUid: string;
+  actorEmail: string;
+  actorRole: string;
+  action: string;
+  resource: string;
+  resourceId?: string;
+  details: string;
+  result: 'SUCCESS' | 'FAILED' | 'BLOCKED';
+}
+
+export interface AdminUserListItem {
+  uid: string;
+  email: string;
+  displayName: string;
+  role: UserRole;
+  status: 'active' | 'disabled' | 'pending';
+  createdAt: string;
+  lastLoginAt?: string;
+  userType?: string;
+  completedChecklistsCount?: number;
+  quizzesCompletedCount?: number;
+}
+
+export interface DetectionAdminMetrics {
+  totalRequests: number;
+  localHeuristicRequests: number;
+  externalReputationRequests: number;
+  flaggedMaliciousCount: number;
+  flaggedSuspiciousCount: number;
+  cleanCount: number;
+  avgLatencyMs: number;
+  fallbackCount: number;
+  rateLimitBlocks: number;
+}
+

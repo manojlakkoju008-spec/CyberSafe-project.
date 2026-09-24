@@ -9,6 +9,7 @@
         "email": { "type": "string", "format": "email", "maxLength": 256 },
         "displayName": { "type": "string", "maxLength": 100 },
         "role": { "type": "string", "enum": ["admin", "educator", "member"] },
+        "status": { "type": "string", "enum": ["active", "disabled", "pending"] },
         "createdAt": { "type": "string" },
         "lastLoginAt": { "type": "string" },
         "userType": { "type": "string", "enum": ["student", "individual", "senior", "educator"] },
@@ -19,15 +20,18 @@
     },
     "Admin": {
       "title": "Admin",
-      "description": "Whitelisted administrator record",
+      "description": "Whitelisted platform administrator and assigned RBAC role",
       "type": "object",
       "properties": {
         "uid": { "type": "string", "maxLength": 128 },
         "email": { "type": "string", "format": "email", "maxLength": 256 },
-        "role": { "type": "string", "enum": ["admin"] },
+        "displayName": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "enum": ["SUPER_ADMIN", "ADMIN", "CONTENT_EDITOR", "MODERATOR", "LOCATION_MANAGER", "ANALYST", "admin"] },
+        "status": { "type": "string", "enum": ["active", "suspended"] },
+        "assignedBy": { "type": "string", "maxLength": 256 },
         "assignedAt": { "type": "string" }
       },
-      "required": ["uid", "email", "role"]
+      "required": ["uid", "email", "role", "status"]
     },
     "UserQuizRecord": {
       "title": "UserQuizRecord",
@@ -58,7 +62,7 @@
         "realExample": { "type": "string", "maxLength": 2000 },
         "actionSteps": { "type": "array" },
         "preventionTips": { "type": "array" },
-        "status": { "type": "string", "enum": ["published", "draft"] },
+        "status": { "type": "string", "enum": ["published", "draft", "in_review", "archived"] },
         "updatedAt": { "type": "string" }
       },
       "required": ["id", "title", "category", "severity", "shortDesc", "status"]
@@ -74,7 +78,7 @@
         "summary": { "type": "string", "maxLength": 1000 },
         "targetAudience": { "type": "string", "maxLength": 100 },
         "phases": { "type": "array" },
-        "status": { "type": "string", "enum": ["published", "draft"] },
+        "status": { "type": "string", "enum": ["published", "draft", "in_review", "archived"] },
         "updatedAt": { "type": "string" }
       },
       "required": ["id", "title", "standard", "summary", "status"]
@@ -93,7 +97,7 @@
         "warningSigns": { "type": "array" },
         "takeaway": { "type": "string", "maxLength": 1000 },
         "difficulty": { "type": "string", "enum": ["beginner", "intermediate", "advanced"] },
-        "status": { "type": "string", "enum": ["published", "draft"] },
+        "status": { "type": "string", "enum": ["published", "draft", "in_review", "archived"] },
         "updatedAt": { "type": "string" }
       },
       "required": ["id", "title", "topic", "scenario", "question", "options", "status"]
@@ -111,6 +115,88 @@
         "updatedAt": { "type": "string" }
       },
       "required": ["id", "helplineNumber", "portalUrl"]
+    },
+    "HelpLocation": {
+      "title": "HelpLocation",
+      "description": "Official police station, cybercrime cell, or verified assistance point",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 200 },
+        "locationType": { "type": "string", "enum": ["POLICE_STATION", "CYBERCRIME_UNIT", "CYBER_CELL", "GOVERNMENT_ASSISTANCE", "OTHER_VERIFIED_HELP"] },
+        "address": { "type": "string", "maxLength": 500 },
+        "city": { "type": "string", "maxLength": 100 },
+        "state": { "type": "string", "maxLength": 100 },
+        "country": { "type": "string", "maxLength": 100 },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "phone": { "type": "string", "maxLength": 50 },
+        "website": { "type": "string", "maxLength": 500 },
+        "openingHours": { "type": "string", "maxLength": 100 },
+        "source": { "type": "string", "maxLength": 200 },
+        "sourceUrl": { "type": "string", "maxLength": 500 },
+        "verificationStatus": { "type": "string", "enum": ["UNVERIFIED", "PENDING_REVIEW", "VERIFIED", "NEEDS_REVIEW", "ARCHIVED"] },
+        "lastVerifiedDate": { "type": "string" },
+        "verifiedBy": { "type": "string", "maxLength": 128 },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "locationType", "latitude", "longitude", "verificationStatus"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "Platform broadcast notice or emergency cyber alert",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 200 },
+        "message": { "type": "string", "maxLength": 2000 },
+        "priority": { "type": "string", "enum": ["low", "medium", "high", "urgent"] },
+        "audience": { "type": "string", "enum": ["all", "members", "students", "seniors"] },
+        "status": { "type": "string", "enum": ["active", "draft", "archived"] },
+        "startDate": { "type": "string" },
+        "endDate": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "createdBy": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "title", "message", "priority", "status"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Append-only record of administrative actions and security events",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "timestamp": { "type": "string" },
+        "actorUid": { "type": "string", "maxLength": 128 },
+        "actorEmail": { "type": "string", "format": "email", "maxLength": 256 },
+        "actorRole": { "type": "string", "maxLength": 50 },
+        "action": { "type": "string", "maxLength": 100 },
+        "resource": { "type": "string", "maxLength": 100 },
+        "resourceId": { "type": "string", "maxLength": 128 },
+        "details": { "type": "string", "maxLength": 2000 },
+        "result": { "type": "string", "enum": ["SUCCESS", "FAILED", "BLOCKED"] }
+      },
+      "required": ["id", "timestamp", "actorEmail", "action", "resource", "result"]
+    },
+    "SystemSettings": {
+      "title": "SystemSettings",
+      "description": "Platform-wide operational and defensive configuration",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "platformName": { "type": "string", "maxLength": 100 },
+        "maintenanceMode": { "type": "boolean" },
+        "contactEmail": { "type": "string", "maxLength": 256 },
+        "maxRadiusKm": { "type": "number" },
+        "defaultRadiusKm": { "type": "number" },
+        "threatIntelCacheMinutes": { "type": "number" },
+        "structuralThresholdMedium": { "type": "number" },
+        "structuralThresholdHigh": { "type": "number" },
+        "updatedAt": { "type": "string" },
+        "updatedBy": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "platformName"]
     }
   },
   "firestore": {
@@ -120,7 +206,7 @@
     },
     "/admins/{adminId}": {
       "schema": "Admin",
-      "description": "Whitelisted platform administrators"
+      "description": "Whitelisted platform administrators and RBAC roles"
     },
     "/users/{userId}/quizRecords/{recordId}": {
       "schema": "UserQuizRecord",
@@ -141,6 +227,22 @@
     "/content_reporting/{resourceId}": {
       "schema": "EmergencyResource",
       "description": "Reporting guidance and official helpline configurations"
+    },
+    "/locations/{locationId}": {
+      "schema": "HelpLocation",
+      "description": "Verified nearby-help locations (cyber cells, police stations)"
+    },
+    "/announcements/{announcementId}": {
+      "schema": "Announcement",
+      "description": "Public platform announcements and safety alerts"
+    },
+    "/audit_logs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Immutable audit trail of administrator actions"
+    },
+    "/system_settings/{settingId}": {
+      "schema": "SystemSettings",
+      "description": "Platform global configuration documents"
     }
   }
 }
