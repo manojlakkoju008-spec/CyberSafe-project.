@@ -492,6 +492,27 @@ export interface IncidentReportDraft {
   targetReportingAgency: string;
 }
 
+export interface IncidentSummaryInput {
+  incidentCategory: string;
+  incidentDate: string;
+  incidentTime: string;
+  platformOrLocation: string;
+  suspectContact: string;
+  financialAmount: string;
+  suspiciousUrlOrPhone: string;
+  narrative: string;
+  evidenceItems: string[];
+}
+
+export interface ReportReadyItem {
+  id: string;
+  label: string;
+  category: 'timeline' | 'identifiers' | 'financial' | 'digital-proof' | 'account';
+  description: string;
+  example: string;
+  importance: 'essential' | 'recommended';
+}
+
 // ==========================================
 // WORKSTREAM 8: EXPANDED QUIZ SYSTEM
 // ==========================================

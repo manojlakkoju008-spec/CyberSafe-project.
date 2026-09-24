@@ -1,4 +1,4 @@
-import { CybercrimeCategory, OfficialReportingRoute } from '../types';
+import { CybercrimeCategory, OfficialReportingRoute, ReportReadyItem } from '../types';
 
 export const INDIA_REPORTING_INFO = {
   helplineNumber: '1930',
@@ -11,47 +11,161 @@ export const INDIA_REPORTING_INFO = {
   disclaimer: 'CyberSafe is an independent academic digital safety initiative and is NOT affiliated with the Ministry of Home Affairs, state police departments, or any government agency. CyberSafe does NOT accept, record, forward, or submit cybercrime complaints. Victims must lodge official reports directly via the National Cybercrime Helpline 1930 or the Official Government Portal (cybercrime.gov.in).'
 };
 
-export const EVIDENCE_CHECKLIST_ITEMS = [
+export const REPORT_PREPARATION_CHECKLIST: ReportReadyItem[] = [
+  {
+    id: 'datetime',
+    label: 'Date and exact time of the incident',
+    category: 'timeline',
+    description: 'Specific timestamp when the call, message, unauthorized debit, or account access happened.',
+    example: 'e.g. 23 Sept 2026, 02:45 PM IST',
+    importance: 'essential',
+  },
+  {
+    id: 'description',
+    label: 'Detailed chronological description',
+    category: 'timeline',
+    description: 'Clear factual summary of how the perpetrator contacted you, what pretext they used, and what actions occurred.',
+    example: 'Caller posed as electricity officer, insisted power will be cut in 15 mins, sent an APK link...',
+    importance: 'essential',
+  },
+  {
+    id: 'url',
+    label: 'Website / URL involved',
+    category: 'digital-proof',
+    description: 'Complete web address from the address bar or message link. Do not click or visit the link again.',
+    example: 'https://fake-bank-auth-update.xyz/login',
+    importance: 'essential',
+  },
+  {
+    id: 'phone',
+    label: 'Phone number / Caller ID / SMS handle',
+    category: 'identifiers',
+    description: 'Exact digits or sender code of the person who called or messaged you, including country codes.',
+    example: '+91 98765 43210 or sender code VK-SBIINB',
+    importance: 'essential',
+  },
+  {
+    id: 'transaction_id',
+    label: 'Transaction ID / UTR / Reference number',
+    category: 'financial',
+    description: '12-digit UTR number, UPI transaction reference, or wallet transfer ID from your bank statement or SMS.',
+    example: 'UTR: 326123456789 or UPI Ref: 426819283746',
+    importance: 'essential',
+  },
+  {
+    id: 'bank_info',
+    label: 'Bank / payment provider information',
+    category: 'financial',
+    description: 'Name of your issuing bank, debit card last 4 digits, or payment app name (Google Pay, PhonePe, Paytm).',
+    example: 'State Bank of India Savings A/c (last 4 digits: 4892)',
+    importance: 'essential',
+  },
   {
     id: 'screenshots',
-    label: 'Screenshots of Messages, Posts, or Screen Popups',
-    description: 'Capture full screens showing timestamps, user handles, message headers, or scam dialogs before they are deleted or modified.'
+    label: 'Screenshots of chats, errors, or receipts',
+    category: 'digital-proof',
+    description: 'Full uncropped screen captures showing timestamps, phone numbers, scam messages, or payment debit screens.',
+    example: 'Save PNG/JPEG images in a dedicated folder on your device',
+    importance: 'essential',
   },
   {
-    id: 'urls',
-    label: 'Exact URLs & Web Addresses',
-    description: 'Copy the full URL from the browser address bar (e.g., https://fake-bank-login.xyz/auth). Do not re-visit or click the link again.'
+    id: 'messages_emails',
+    label: 'Messages / emails & raw email headers',
+    category: 'digital-proof',
+    description: 'Original text messages, WhatsApp conversation export, or downloaded .eml email file with full routing headers.',
+    example: 'Export WhatsApp chat without media, or click "Show Original" in Gmail',
+    importance: 'recommended',
   },
   {
-    id: 'phone_numbers',
-    label: 'Phone Numbers & Call Logs',
-    description: 'Document the exact mobile or landline numbers used by the scammer, including caller IDs, SMS sender headers, or WhatsApp/Telegram numbers.'
+    id: 'social_profile',
+    label: 'Social media profile link or handle',
+    category: 'identifiers',
+    description: 'Exact username, URL, or channel link of the counterfeit or offending profile on Instagram, X, or LinkedIn.',
+    example: 'https://instagram.com/scammer_fake_profile',
+    importance: 'recommended',
   },
   {
-    id: 'email_addresses',
-    label: 'Email Addresses & Full Email Headers',
-    description: 'Save the sender’s full email address and download or export the raw original email headers (.eml or "Show Original") showing routing IPs.'
+    id: 'account_info',
+    label: 'Relevant account or username affected',
+    category: 'account',
+    description: 'Your registered email or user handle for the affected account. NEVER include your password or PIN.',
+    example: 'Affected account: yourname@gmail.com (do NOT record passwords)',
+    importance: 'recommended',
+  },
+];
+
+export const EVIDENCE_CHECKLIST_ITEMS = REPORT_PREPARATION_CHECKLIST;
+
+export const SAFETY_REMINDERS_DO_NOT = [
+  {
+    id: 'no-secondary-payment',
+    rule: 'DO NOT send another payment or processing fee',
+    detail: 'Never pay "refund fees", "GST tax to release frozen money", or "clearance charges". Every secondary payment request is fraud.',
   },
   {
-    id: 'transaction_ids',
-    label: 'Bank Transaction IDs, UTR & Reference Numbers',
-    description: 'Record the Unique Transaction Reference (UTR), UPI reference number, credit card charge reference, or wallet transfer IDs from your bank statement.'
+    id: 'no-otp-sharing',
+    rule: 'DO NOT share OTPs under any circumstance',
+    detail: 'Bank staff, police, and cybercrime officials will NEVER ask for a One-Time Password or dynamic authentication code.',
   },
   {
-    id: 'timestamps',
-    label: 'Exact Timestamps & Date Records',
-    description: 'Note the exact time, date, and time zone each call, transaction, or suspicious message occurred. Timelines are vital for bank freeze requests.'
+    id: 'no-passwords-pins',
+    rule: 'DO NOT share passwords, UPI PINs, or card CVVs',
+    detail: 'No legitimate organization needs your passwords, PINs, or CVV. UPI PIN is ONLY entered to deduct money, NEVER to receive.',
   },
   {
-    id: 'messages_chats',
-    label: 'Full Chat Logs & Communication History',
-    description: 'Export or backup chat histories from WhatsApp, Telegram, SMS, or direct messages before the perpetrator unsends messages.'
+    id: 'no-remote-access',
+    rule: 'DO NOT install remote desktop or screen-sharing apps',
+    detail: 'Immediately decline caller requests to install AnyDesk, TeamViewer, RustDesk, QuickSupport, or screen-sharing tools.',
   },
   {
-    id: 'relevant_files',
-    label: 'Relevant Downloaded Files or Invoices',
-    description: 'Keep downloaded files (e.g. fake invoices, APK installers, remote access logs) in an isolated folder without opening or executing them.'
-  }
+    id: 'no-evidence-deletion',
+    rule: 'DO NOT delete chats, call logs, or SMS messages',
+    detail: 'Do not delete conversation threads in panic. Law enforcement requires full chronological proof for legal prosecution.',
+  },
+  {
+    id: 'no-reclicking-links',
+    rule: 'DO NOT click suspicious links or re-enter credentials',
+    detail: 'Avoid visiting the deceptive site again. Clicking it may trigger drive-by malware downloads or session hijacking.',
+  },
+];
+
+export const GUIDED_ACTION_FLOWS = [
+  {
+    id: 'money-lost',
+    title: 'Money Debited Unauthorizedly?',
+    badge: 'Urgent Financial Response',
+    steps: [
+      { step: 1, action: 'Call 1930 immediately', detail: 'The first 1 to 2 hours are crucial to establish interbank lien across recipient accounts.' },
+      { step: 2, action: 'Contact bank fraud desk', detail: 'Call your bank 24/7 hotline to hotlist cards, block net banking, and lodge an electronic transaction dispute.' },
+      { step: 3, action: 'Preserve transaction details', detail: 'Note the 12-digit UTR number, beneficiary UPI ID/account number, and debit SMS timestamp.' },
+      { step: 4, action: 'Report on official portal', detail: 'Lodge a formal complaint on cybercrime.gov.in under "Report Financial Fraud" to get an official FIR acknowledgement.' },
+      { step: 5, action: 'Do not send additional money', detail: 'Never pay any "recovery fee" or "court clearance deposit" to callers promising to retrieve your funds.' },
+    ],
+  },
+  {
+    id: 'suspicious-link',
+    title: 'Clicked or Received a Suspicious Link?',
+    badge: 'Malicious Link Containment',
+    steps: [
+      { step: 1, action: 'Do not click the link again', detail: 'Close the browser tab immediately and disconnect from public Wi-Fi.' },
+      { step: 2, action: 'Copy & preserve the message', detail: 'Take a full screenshot showing the sender number or email header before archiving the message.' },
+      { step: 3, action: 'Analyze with CyberSafe Detect', detail: 'Inspect the URL structure safely without directly connecting to verify spoofing markers and reputation.' },
+      { step: 4, action: 'Secure exposed credentials', detail: 'If you typed a password or debit card, change credentials immediately from a known clean device.' },
+      { step: 5, action: 'Report to official channels', detail: 'Forward scam SMS to 1909 (telecom spam) or report deceptive domains to Chakshu / CERT-In.' },
+    ],
+  },
+  {
+    id: 'account-hacked',
+    title: 'Account Compromised or Locked Out?',
+    badge: 'Account Perimeter Recovery',
+    steps: [
+      { step: 1, action: 'Use platform official recovery', detail: 'Go to accounts.google.com/signin/recovery, instagram.com/hacked, or meta.com from a recognized device.' },
+      { step: 2, action: 'Secure from a trusted device', detail: 'Access account security settings from your usual phone or home computer to verify recovery email and phone.' },
+      { step: 3, action: 'Revoke active sessions', detail: 'Click "Log out of all other devices / active sessions" to immediately terminate attacker access.' },
+      { step: 4, action: 'Enable app-based MFA', detail: 'Turn on Multi-Factor Authentication using an Authenticator app (e.g. Google Authenticator) instead of SMS.' },
+      { step: 5, action: 'Alert personal contacts', detail: 'Inform friends and family that your account was compromised and to ignore any requests for money.' },
+    ],
+  },
 ];
 
 export const REPORT_CATEGORIES: CybercrimeCategory[] = [
@@ -129,6 +243,84 @@ export const REPORT_CATEGORIES: CybercrimeCategory[] = [
       {
         name: 'National Cyber Crime Reporting Helpline (India)',
         description: 'Toll-free emergency helpline for immediate reporting of financial cyber fraud to facilitate lien/freeze of funds.',
+        helpline: '1930',
+        isOfficialGov: true
+      },
+      {
+        name: 'National Cyber Crime Reporting Portal',
+        description: 'Official Government of India portal for filing cybercrime complaints.',
+        url: 'https://cybercrime.gov.in/',
+        isOfficialGov: true
+      }
+    ]
+  },
+  {
+    id: 'upi-payment-fraud',
+    title: 'UPI / Payment Fraud',
+    iconName: 'Smartphone',
+    tagline: 'Fake QR codes to "receive money", fraudulent UPI collect requests, payment gateway spoofing, or OLX / marketplace seller scams',
+    whatHappened: [
+      'Buyer sent a QR code claiming "Scan this QR code to receive your product payment"',
+      'Fraudulent UPI "Collect Request" notification approved believing it would credit money',
+      'Remote screen-sharing tool used by caller to observe your 4-digit or 6-digit UPI PIN',
+      'Cashback or scratch card link on WhatsApp prompting UPI PIN to redeem cash'
+    ],
+    immediateActions: [
+      'Call 1930 immediately with the 12-digit UTR and UPI Transaction Reference number.',
+      'Open your UPI app (Google Pay / PhonePe / Paytm / BHIM) > Help > Report Fraud on the specific transaction.',
+      'Change your UPI PIN immediately from your bank account settings.',
+      'Contact your linked bank fraud department to place an emergency lien on the debited account.'
+    ],
+    evidenceToPreserve: [
+      '12-digit UTR (Unique Transaction Reference) number from your bank debit SMS',
+      'Screenshot of the UPI transaction details screen showing beneficiary Virtual Payment Address (VPA)',
+      'Screenshot of the QR code or payment link received from the scammer',
+      'Caller mobile number, WhatsApp chat transcript, or marketplace listing URL'
+    ],
+    accountProtectionSteps: [
+      'Reset UPI PIN across all linked bank accounts.',
+      'De-register any secondary payment devices in your banking app security settings.',
+      'Remember the golden rule: UPI PIN is ONLY entered to SEND or DEBIT money, NEVER to receive funds.',
+      'Reduce your daily UPI transaction limit in your banking app to a minimal safe threshold.'
+    ],
+    relevantOfficialReportingRoute: [
+      {
+        name: 'National Cyber Crime Reporting Helpline (India)',
+        description: 'Toll-free 24/7 emergency response for immediate interbank freeze of UPI transferred funds.',
+        helpline: '1930',
+        isOfficialGov: true,
+        notes: 'Provide the 12-digit UTR number to the operator immediately.'
+      },
+      {
+        name: 'National Cyber Crime Reporting Portal',
+        description: 'Official Government of India portal.',
+        url: 'https://cybercrime.gov.in/',
+        isOfficialGov: true,
+        notes: 'File under "Report Financial Fraud" > "UPI Related Fraud".'
+      },
+      {
+        name: 'NPCI UPI Dispute Resolution Mechanism',
+        description: 'National Payments Corporation of India grievance platform.',
+        url: 'https://www.npci.org.in/what-we-do/upi/dispute-redressal-mechanism',
+        isOfficialGov: true
+      }
+    ],
+    warningsWhatNotToDo: [
+      'NEVER scan a QR code or enter your UPI PIN to "receive money" or "claim a prize".',
+      'DO NOT approve unfamiliar pop-up collect requests inside payment apps.',
+      'DO NOT call customer care numbers found on Google Search or Google Maps reviews.',
+      'DO NOT transfer another test rupee or 10 rupees to "verify" the account.'
+    ],
+    immediateSafetySteps: [
+      'Call 1930 with 12-digit UTR immediately.',
+      'Report fraud inside your UPI app transaction history.',
+      'Change UPI PIN immediately.',
+      'File on cybercrime.gov.in.'
+    ],
+    whereToReport: [
+      {
+        name: 'National Cyber Crime Reporting Helpline',
+        description: 'Toll-free emergency helpline for reporting UPI payment fraud and fund liens.',
         helpline: '1930',
         isOfficialGov: true
       },

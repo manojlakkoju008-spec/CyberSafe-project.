@@ -38,7 +38,7 @@ import { Badge } from '../components/common/Badge';
 import { Button } from '../components/common/Button';
 
 interface DetectPageProps {
-  onNavigateToReport: () => void;
+  onNavigateToReport: (incidentId?: string, url?: string) => void;
 }
 
 interface TestRunResult {
@@ -689,7 +689,7 @@ Notice: No known threat detected does not guarantee safety.`;
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={onNavigateToReport}
+                      onClick={() => onNavigateToReport('suspicious-website', assessment.normalizedUrl)}
                       className="w-full text-xs font-bold text-rose-700 border-rose-300 hover:bg-rose-50"
                     >
                       Report This Link in Incident Helper
@@ -941,6 +941,17 @@ Notice: No known threat detected does not guarantee safety.`;
                   </li>
                 ))}
               </ul>
+
+              <div className="pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => onNavigateToReport('suspicious-website', assessment.normalizedUrl)}
+                  className="w-full py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition inline-flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                >
+                  <FileText className="w-3.5 h-3.5 text-blue-400" />
+                  <span>Prepare Report in Help Center with this URL</span>
+                </button>
+              </div>
             </Card>
 
             <Card className="p-6 space-y-3.5 shadow-sm border-slate-200 bg-white">

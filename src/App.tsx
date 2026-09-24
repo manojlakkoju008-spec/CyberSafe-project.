@@ -19,13 +19,15 @@ function AppContent() {
   const [currentPage, setCurrentPage] = useState<PageType>('home');
   const [learnSearchQuery, setLearnSearchQuery] = useState<string>('');
   const [reportIncidentId, setReportIncidentId] = useState<string | undefined>(undefined);
+  const [reportUrl, setReportUrl] = useState<string | undefined>(undefined);
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
 
-  const navigateTo = (page: PageType, queryOrIncidentId?: string) => {
+  const navigateTo = (page: PageType, queryOrIncidentId?: string, url?: string) => {
     if (page === 'learn') {
       setLearnSearchQuery(queryOrIncidentId || '');
     } else if (page === 'report') {
       setReportIncidentId(queryOrIncidentId);
+      setReportUrl(url);
     }
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -72,13 +74,14 @@ function AppContent() {
 
         {currentPage === 'detect' && (
           <DetectPage
-            onNavigateToReport={() => navigateTo('report')}
+            onNavigateToReport={(incidentId, url) => navigateTo('report', incidentId, url)}
           />
         )}
 
         {currentPage === 'report' && (
           <ReportPage
             initialIncidentId={reportIncidentId}
+            initialUrl={reportUrl}
           />
         )}
 

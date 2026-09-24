@@ -184,6 +184,15 @@ export const LocationDetailModal: React.FC<LocationDetailModalProps> = ({ locati
           </div>
 
           <div className="flex items-center gap-2.5 w-full sm:w-auto">
+            {location.phone && (
+              <a
+                href={`tel:${location.phone}`}
+                className="px-4 py-2.5 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 text-xs font-bold inline-flex items-center gap-1.5 transition"
+              >
+                <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Call Desk</span>
+              </a>
+            )}
             <button
               type="button"
               onClick={onClose}

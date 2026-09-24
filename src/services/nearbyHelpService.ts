@@ -123,18 +123,33 @@ function formatOsmAddress(tags: Record<string, string>, defaultCity?: string): s
   return parts.length > 0 ? parts.join(', ') : 'Address details not specified in public records';
 }
 
+// In-memory cache to avoid repeated queries within same session
+const queryCache = new Map<string, { data: { locations: NearbyHelpLocation[]; searchRadiusKm: number; hasCyberCell: boolean }; timestamp: number }>();
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
 /**
  * Fetches real police and reporting locations around coordinates using OpenStreetMap Overpass API.
- * Uses progressive radius expansion: 5km -> 10km -> 25km.
+ * Supports explicit radius (5000m, 10000m, 25000m) with fallback.
  */
 export async function fetchNearbyPoliceLocations(
   lat: number,
   lon: number,
-  initialRadiusMeters = 5000
+  requestedRadiusMeters = 5000,
+  autoExpand = true
 ): Promise<{ locations: NearbyHelpLocation[]; searchRadiusKm: number; hasCyberCell: boolean }> {
-  const radiiToTry = [initialRadiusMeters, 10000, 25000];
+  // Round coordinates to ~100m for cache lookup
+  const cacheKey = `${lat.toFixed(3)},${lon.toFixed(3)}-${requestedRadiusMeters}-${autoExpand}`;
+  const cached = queryCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+
+  const radiiToTry = autoExpand 
+    ? [requestedRadiusMeters, 10000, 25000].filter((r, idx, arr) => arr.indexOf(r) === idx && r >= requestedRadiusMeters)
+    : [requestedRadiusMeters];
+
   let finalLocations: NearbyHelpLocation[] = [];
-  let successfulRadiusKm = Math.round(initialRadiusMeters / 1000);
+  let successfulRadiusKm = Math.round(requestedRadiusMeters / 1000);
 
   for (const radius of radiiToTry) {
     const currentRadiusKm = Math.round(radius / 1000);
@@ -236,11 +251,15 @@ out center tags;`;
   const cappedLocations = finalLocations.slice(0, 20);
   const hasCyberCell = cappedLocations.some((l) => l.isCyberDedicated);
 
-  return {
+  const result = {
     locations: cappedLocations,
     searchRadiusKm: successfulRadiusKm,
     hasCyberCell,
   };
+
+  queryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+
+  return result;
 }
 
 /**
