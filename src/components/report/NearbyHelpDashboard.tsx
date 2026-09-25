@@ -143,10 +143,11 @@ export const NearbyHelpDashboard: React.FC = () => {
       });
 
       const { locations: foundLocations, searchRadiusKm: radius, hasCyberCell: cyberFound } =
-        await fetchNearbyPoliceLocations(lat, lon, radiusMeters, false);
+        await fetchNearbyPoliceLocations(lat, lon, radiusMeters, true);
 
       setLocations(foundLocations);
       setSearchRadiusKm(radius);
+      setActiveRadius(radius);
       setHasCyberCell(cyberFound);
       setHasSearched(true);
 

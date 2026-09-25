@@ -657,7 +657,7 @@ export interface NearbyHelpLocation {
   openingHours?: string;
   osmType?: 'node' | 'way' | 'relation';
   osmId?: number | string;
-  verifiedSource: 'OpenStreetMap' | 'Official Directory';
+  verifiedSource: 'OpenStreetMap' | 'Official Directory' | string;
 }
 
 export interface UserCoordinates {
