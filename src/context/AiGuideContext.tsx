@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { PageType } from '../types';
 import { AiGuideMessage, AiGuideAction } from '../types/aiGuide';
 import { askAiGuide } from '../services/aiGuideService';
@@ -84,9 +84,16 @@ export const AiGuideProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [isLoading, setIsLoading] = useState(false);
   const [activeContextPage, setActiveContextPage] = useState<PageType>('home');
   const [pendingActionConfirmation, setPendingActionConfirmation] = useState<AiGuideAction | null>(null);
-  const [onNavigateCallback, setOnNavigateCallback] = useState<
-    ((page: PageType, queryOrIncidentId?: string, url?: string, areaId?: string, category?: string) => void) | undefined
-  >(undefined);
+  const onNavigateRef = useRef<
+    ((page: PageType, queryOrIncidentId?: string, url?: string, areaId?: string, category?: string) => void) | null
+  >(null);
+
+  const setOnNavigate = useCallback(
+    (fn: (page: PageType, queryOrIncidentId?: string, url?: string, areaId?: string, category?: string) => void) => {
+      onNavigateRef.current = fn;
+    },
+    []
+  );
 
   const [messages, setMessages] = useState<AiGuideMessage[]>(() => {
     try {
@@ -135,26 +142,26 @@ export const AiGuideProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const executeDirectAction = (action: AiGuideAction) => {
-    if (!onNavigateCallback) return;
+    if (!onNavigateRef.current) return;
 
     switch (action.type) {
       case 'navigate_detect':
-        onNavigateCallback('detect', undefined, action.payload.url);
+        onNavigateRef.current('detect', undefined, action.payload.url);
         break;
       case 'navigate_report':
-        onNavigateCallback('report', action.payload.incidentId, action.payload.url);
+        onNavigateRef.current('report', action.payload.incidentId, action.payload.url);
         break;
       case 'navigate_learn':
-        onNavigateCallback('learn', action.payload.searchQuery);
+        onNavigateRef.current('learn', action.payload.searchQuery);
         break;
       case 'navigate_prevent':
-        onNavigateCallback('prevent', action.payload.searchQuery, undefined, action.payload.areaId);
+        onNavigateRef.current('prevent', action.payload.searchQuery, undefined, action.payload.areaId);
         break;
       case 'navigate_quiz':
-        onNavigateCallback('quiz', action.payload.category as string);
+        onNavigateRef.current('quiz', action.payload.category as string);
         break;
       case 'navigate_nearby':
-        onNavigateCallback('report', 'nearby');
+        onNavigateRef.current('report', 'nearby');
         break;
       case 'open_external_confirmed':
         if (action.payload.externalUrl) {
@@ -275,7 +282,7 @@ export const AiGuideProvider: React.FC<{ children: ReactNode }> = ({ children })
         confirmPendingAction,
         cancelPendingAction,
         executeDirectAction,
-        setOnNavigate: setOnNavigateCallback,
+        setOnNavigate,
       }}
     >
       {children}

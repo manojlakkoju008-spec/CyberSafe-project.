@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { PageType, QuizCategory } from './types';
 import { AuthProvider } from './context/AuthContext';
 import { AiGuideProvider, useAiGuide } from './context/AiGuideContext';
@@ -28,6 +28,18 @@ function AppContent() {
   const [preventAreaId, setPreventAreaId] = useState<string | undefined>(undefined);
   const [quizCategory, setQuizCategory] = useState<string | undefined>(undefined);
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
+  const [gmpQuotaExceeded, setGmpQuotaExceeded] = useState(false);
+
+  // Listen for Google Maps quota exceeded event
+  useEffect(() => {
+    const handleQuotaExceeded = () => {
+      setGmpQuotaExceeded(true);
+    };
+    window.addEventListener('gmp-quota-exceeded', handleQuotaExceeded);
+    return () => {
+      window.removeEventListener('gmp-quota-exceeded', handleQuotaExceeded);
+    };
+  }, []);
 
   const { setActiveContextPage, setOnNavigate } = useAiGuide();
 
@@ -36,7 +48,7 @@ function AppContent() {
     setActiveContextPage(currentPage);
   }, [currentPage, setActiveContextPage]);
 
-  const navigateTo = (
+  const navigateTo = useCallback((
     page: PageType,
     queryOrIncidentId?: string,
     url?: string,
@@ -57,14 +69,12 @@ function AppContent() {
     }
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  }, []);
 
   // Wire AI Guide navigation callback
   useEffect(() => {
-    setOnNavigate((page, queryOrIncidentId, url, areaId, category) => {
-      navigateTo(page, queryOrIncidentId, url, areaId, category);
-    });
-  }, [setOnNavigate]);
+    setOnNavigate(navigateTo);
+  }, [setOnNavigate, navigateTo]);
 
   const handleOpenEmergency = () => {
     setIsEmergencyModalOpen(true);
@@ -76,6 +86,24 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
+      {/* Google Maps Quota Warning Banner */}
+      {gmpQuotaExceeded && (
+        <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
+          <span>
+            Google Maps Platform quota reached. If you are the app owner, visit{' '}
+            <a
+              href="https://developers.google.com/maps/ai/ai-studio?utm_campaign=gmp_mcp_codeassist_v1_aistudio#quota_exceeded_errors"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-semibold text-amber-950 hover:text-amber-800"
+            >
+              maps developer site
+            </a>{' '}
+            for instructions to update your account.
+          </span>
+        </div>
+      )}
+
       {/* Navigation */}
       {currentPage !== 'admin' && (
         <Navbar
