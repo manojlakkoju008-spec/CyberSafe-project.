@@ -1,14 +1,27 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import {
   APIProvider,
   Map,
   AdvancedMarker,
   InfoWindow,
   useMap,
+  useApiLoadingStatus,
 } from '@vis.gl/react-google-maps';
 import { NearbyHelpLocation, UserCoordinates } from '../../types';
 import { getDirectionsUrl } from '../../services/nearbyHelpService';
-import { Crosshair, ExternalLink, ZoomIn, ZoomOut, AlertCircle } from 'lucide-react';
+import {
+  Crosshair,
+  ExternalLink,
+  ZoomIn,
+  ZoomOut,
+  AlertCircle,
+  ShieldAlert,
+  KeyRound,
+  RefreshCw,
+  Globe,
+  CheckCircle2,
+  Copy,
+} from 'lucide-react';
 
 interface NearbyHelpMapProps {
   userLocation: UserCoordinates;
@@ -18,7 +31,7 @@ interface NearbyHelpMapProps {
   onOpenDetails: (loc: NearbyHelpLocation) => void;
 }
 
-// Map Controls & Behavior sub-component inside APIProvider & Map context
+// Controller component inside APIProvider and Map context
 const MapController: React.FC<{
   userLocation: UserCoordinates;
   locations: NearbyHelpLocation[];
@@ -81,6 +94,7 @@ const MapController: React.FC<{
           type="button"
           onClick={handleZoomIn}
           title="Zoom in"
+          aria-label="Zoom in"
           className="p-2.5 hover:bg-slate-100 text-slate-700 transition cursor-pointer border-b border-slate-100"
         >
           <ZoomIn className="w-4 h-4" />
@@ -89,6 +103,7 @@ const MapController: React.FC<{
           type="button"
           onClick={handleZoomOut}
           title="Zoom out"
+          aria-label="Zoom out"
           className="p-2.5 hover:bg-slate-100 text-slate-700 transition cursor-pointer"
         >
           <ZoomOut className="w-4 h-4" />
@@ -109,6 +124,23 @@ const MapController: React.FC<{
   );
 };
 
+// Internal status observer hook component inside APIProvider
+const ApiStatusWatcher: React.FC<{
+  onError: (type: string) => void;
+}> = ({ onError }) => {
+  const status = useApiLoadingStatus();
+
+  useEffect(() => {
+    if (status === 'AUTH_FAILURE') {
+      onError('AUTH_FAILURE');
+    } else if (status === 'FAILED') {
+      onError('LOAD_FAILED');
+    }
+  }, [status, onError]);
+
+  return null;
+};
+
 export const NearbyHelpMap: React.FC<NearbyHelpMapProps> = ({
   userLocation,
   locations,
@@ -116,23 +148,255 @@ export const NearbyHelpMap: React.FC<NearbyHelpMapProps> = ({
   onSelectLocation,
   onOpenDetails,
 }) => {
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+  // Read Vite build-time environment variable safely
+  const envKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '').trim();
 
-  if (!apiKey) {
+  // Session override for instant preview validation
+  const [sessionKey, setSessionKey] = useState<string>(() => {
+    try {
+      return (sessionStorage.getItem('CYBERSAFE_MAPS_KEY_OVERRIDE') || '').trim();
+    } catch {
+      return '';
+    }
+  });
+
+  const [inputKey, setInputKey] = useState('');
+  const [isCopiedOrigin, setIsCopiedOrigin] = useState(false);
+  const [authErrorType, setAuthErrorType] = useState<string | null>(null);
+  const [showOverrideInput, setShowOverrideInput] = useState(false);
+
+  const activeApiKey = envKey || sessionKey;
+  const currentOrigin = typeof window !== 'undefined' ? `${window.location.origin}/*` : 'https://*.vercel.app/*';
+
+  // Listen for Google Maps runtime diagnostic events
+  useEffect(() => {
+    const handleAuthFailure = () => setAuthErrorType('AUTH_FAILURE');
+    const handleRefererError = () => setAuthErrorType('REFERER_ERROR');
+    const handleApiNotActivated = () => setAuthErrorType('API_NOT_ACTIVATED');
+    const handleInvalidKey = () => setAuthErrorType('INVALID_KEY');
+    const handleBillingError = () => setAuthErrorType('BILLING_ERROR');
+
+    window.addEventListener('gmp-auth-failure', handleAuthFailure);
+    window.addEventListener('gmp-referer-error', handleRefererError);
+    window.addEventListener('gmp-api-not-activated', handleApiNotActivated);
+    window.addEventListener('gmp-invalid-key', handleInvalidKey);
+    window.addEventListener('gmp-billing-error', handleBillingError);
+
+    return () => {
+      window.removeEventListener('gmp-auth-failure', handleAuthFailure);
+      window.removeEventListener('gmp-referer-error', handleRefererError);
+      window.removeEventListener('gmp-api-not-activated', handleApiNotActivated);
+      window.removeEventListener('gmp-invalid-key', handleInvalidKey);
+      window.removeEventListener('gmp-billing-error', handleBillingError);
+    };
+  }, []);
+
+  const handleApplySessionKey = (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = inputKey.trim();
+    if (!clean) return;
+    try {
+      sessionStorage.setItem('CYBERSAFE_MAPS_KEY_OVERRIDE', clean);
+      setSessionKey(clean);
+      setAuthErrorType(null);
+    } catch {
+      // Ignored
+    }
+  };
+
+  const handleClearSessionKey = () => {
+    try {
+      sessionStorage.removeItem('CYBERSAFE_MAPS_KEY_OVERRIDE');
+      setSessionKey('');
+      setAuthErrorType(null);
+      setInputKey('');
+    } catch {
+      // Ignored
+    }
+  };
+
+  const handleCopyOrigin = () => {
+    navigator.clipboard.writeText(currentOrigin);
+    setIsCopiedOrigin(true);
+    setTimeout(() => setIsCopiedOrigin(false), 2000);
+  };
+
+  // 1. Missing API Key State (Vercel / Build configuration guide)
+  if (!activeApiKey) {
     return (
-      <div className="relative w-full h-[380px] sm:h-[480px] lg:h-[560px] rounded-3xl overflow-hidden border border-slate-200 shadow-inner bg-slate-100 flex flex-col items-center justify-center p-6 text-center space-y-3">
-        <AlertCircle className="w-10 h-10 text-amber-600" />
-        <h3 className="text-base font-bold text-slate-900">Google Maps Platform Key Required</h3>
-        <p className="text-xs text-slate-500 max-w-md">
-          Please configure <code className="px-1.5 py-0.5 bg-slate-200 rounded text-slate-800 font-mono">VITE_GOOGLE_MAPS_API_KEY</code> to enable the interactive Google Maps view.
+      <div className="relative w-full min-h-[380px] sm:min-h-[480px] lg:min-h-[560px] rounded-3xl overflow-hidden border border-slate-200 shadow-inner bg-slate-50 flex flex-col items-center justify-center p-6 sm:p-8 text-center">
+        <div className="w-14 h-14 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mb-4 shadow-sm">
+          <KeyRound className="w-7 h-7" />
+        </div>
+
+        <h3 className="text-lg font-bold text-slate-900 mb-2">
+          Google Maps Platform Key Required
+        </h3>
+
+        <p className="text-xs sm:text-sm text-slate-600 max-w-lg mb-6 leading-relaxed">
+          The interactive map requires a Google Maps API Key. In Vite applications deployed to Vercel, the key is baked into the frontend bundle at build time using the variable name:
+        </p>
+
+        <div className="bg-slate-900 text-slate-100 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-mono font-semibold mb-6 flex items-center gap-2 shadow-xs">
+          <span>VITE_GOOGLE_MAPS_API_KEY</span>
+        </div>
+
+        {/* Quick Resolution Checklist for Vercel */}
+        <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl p-4 text-left space-y-3 mb-6 shadow-xs text-xs">
+          <div className="font-bold text-slate-900 flex items-center gap-1.5 pb-2 border-b border-slate-100">
+            <Globe className="w-4 h-4 text-blue-600" />
+            <span>To Enable on Vercel:</span>
+          </div>
+          <ol className="list-decimal list-inside space-y-2 text-slate-600 leading-relaxed">
+            <li>
+              Go to <strong>Vercel Dashboard</strong> &rarr; <strong>Project Settings</strong> &rarr; <strong>Environment Variables</strong>.
+            </li>
+            <li>
+              Add Key: <code className="px-1 py-0.5 bg-slate-100 text-slate-800 rounded font-mono font-semibold">VITE_GOOGLE_MAPS_API_KEY</code> with your key value. Check <strong>Production</strong> and <strong>Preview</strong>.
+            </li>
+            <li>
+              Go to <strong>Deployments</strong> &rarr; click <code className="px-1 py-0.5 bg-slate-100 text-slate-800 rounded font-mono">...</code> &rarr; <strong>Redeploy</strong> (Vite bundles the key during build).
+            </li>
+          </ol>
+        </div>
+
+        {/* Quick Session Key Testing Field */}
+        <div className="w-full max-w-md">
+          {!showOverrideInput ? (
+            <button
+              type="button"
+              onClick={() => setShowOverrideInput(true)}
+              className="text-xs text-blue-600 hover:text-blue-700 font-semibold underline cursor-pointer"
+            >
+              Have a key right now? Test it in this session without redeploying &rarr;
+            </button>
+          ) : (
+            <form onSubmit={handleApplySessionKey} className="bg-white border border-blue-200 rounded-2xl p-4 space-y-2 shadow-xs">
+              <label htmlFor="temp-key-input" className="block text-left text-xs font-bold text-slate-900">
+                Test API Key in Current Browser Session:
+              </label>
+              <div className="flex gap-2">
+                <input
+                  id="temp-key-input"
+                  type="text"
+                  value={inputKey}
+                  onChange={(e) => setInputKey(e.target.value)}
+                  placeholder="AIzaSy..."
+                  className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="submit"
+                  disabled={!inputKey.trim()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl cursor-pointer transition shadow-xs"
+                >
+                  Load Map
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-500 text-left">
+                Key will be stored in this session only for testing. For production, add it to Vercel Environment Variables.
+              </p>
+            </form>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Google Maps API Runtime Error State (Referrer, Invalid Key, API not active)
+  if (authErrorType) {
+    let errorTitle = 'Google Maps Authorization Error';
+    let errorDescription = 'Google Maps failed to authorize this request. Please review your Google Cloud settings.';
+    let recommendation = '';
+
+    if (authErrorType === 'REFERER_ERROR') {
+      errorTitle = 'Google Maps HTTP Referrer Restriction Mismatch';
+      errorDescription = `Your API key in Google Cloud Console has HTTP Referrer restrictions that do not include this domain (${currentOrigin}).`;
+      recommendation = `In Google Cloud Console -> APIs & Services -> Credentials -> Edit API Key -> Under "Website restrictions", add "${currentOrigin}" and click Save.`;
+    } else if (authErrorType === 'API_NOT_ACTIVATED') {
+      errorTitle = 'Maps JavaScript API Not Activated';
+      errorDescription = 'The Maps JavaScript API has not been enabled in your Google Cloud Project.';
+      recommendation = 'In Google Cloud Console -> APIs & Services -> Library -> Search for "Maps JavaScript API" and click "Enable".';
+    } else if (authErrorType === 'INVALID_KEY') {
+      errorTitle = 'Invalid Google Maps API Key';
+      errorDescription = 'The API key provided was not recognized by Google Maps Platform.';
+      recommendation = 'Double-check that the key string copied into Vercel or your session has no trailing spaces or missing characters.';
+    } else if (authErrorType === 'BILLING_ERROR') {
+      errorTitle = 'Google Cloud Billing Account Required';
+      errorDescription = 'Google Maps Platform APIs require an active billing account linked to your Google Cloud project.';
+      recommendation = 'Link a billing account in Google Cloud Console (Google provides a monthly free tier credit of $200 for maps).';
+    }
+
+    return (
+      <div className="relative w-full min-h-[380px] sm:min-h-[480px] lg:min-h-[560px] rounded-3xl overflow-hidden border border-rose-200 bg-rose-50/70 p-6 sm:p-8 flex flex-col items-center justify-center text-center space-y-4">
+        <div className="w-14 h-14 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shadow-sm">
+          <ShieldAlert className="w-7 h-7" />
+        </div>
+
+        <div className="max-w-md space-y-2">
+          <h3 className="text-base sm:text-lg font-bold text-slate-900">{errorTitle}</h3>
+          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">{errorDescription}</p>
+        </div>
+
+        {recommendation && (
+          <div className="w-full max-w-md bg-white border border-rose-200 rounded-2xl p-4 text-left space-y-2 shadow-xs text-xs text-slate-700">
+            <span className="font-bold text-rose-900 block">How to Fix in Google Cloud:</span>
+            <p className="leading-relaxed">{recommendation}</p>
+
+            {authErrorType === 'REFERER_ERROR' && (
+              <div className="pt-2 flex items-center gap-2">
+                <code className="px-2 py-1 bg-slate-100 text-slate-800 rounded font-mono text-[11px] truncate flex-1">
+                  {currentOrigin}
+                </code>
+                <button
+                  type="button"
+                  onClick={handleCopyOrigin}
+                  className="px-2.5 py-1 bg-slate-800 text-white font-bold rounded-lg text-[11px] inline-flex items-center gap-1 cursor-pointer"
+                >
+                  {isCopiedOrigin ? <CheckCircle2 className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  <span>{isCopiedOrigin ? 'Copied' : 'Copy'}</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-3 pt-2">
+          <button
+            type="button"
+            onClick={() => setAuthErrorType(null)}
+            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs transition inline-flex items-center gap-1.5 cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Retry Map</span>
+          </button>
+
+          {sessionKey && (
+            <button
+              type="button"
+              onClick={handleClearSessionKey}
+              className="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
+            >
+              Clear Session Key
+            </button>
+          )}
+        </div>
+
+        <p className="text-[11px] text-slate-500 max-w-sm pt-2">
+          Note: You can still view all verified nearby facilities, contact info, and navigation links in the list beside this map.
         </p>
       </div>
     );
   }
 
+  // 3. Active Interactive Map View
   return (
     <div className="relative w-full h-[380px] sm:h-[480px] lg:h-[560px] rounded-3xl overflow-hidden border border-slate-200 shadow-inner bg-slate-100">
-      <APIProvider apiKey={apiKey} libraries={['marker']}>
+      <APIProvider
+        apiKey={activeApiKey}
+        libraries={['marker']}
+        onError={() => setAuthErrorType('LOAD_FAILED')}
+      >
+        <ApiStatusWatcher onError={(type) => setAuthErrorType(type)} />
         <Map
           mapId="DEMO_MAP_ID"
           defaultCenter={{ lat: userLocation.latitude, lng: userLocation.longitude }}
@@ -148,7 +412,7 @@ export const NearbyHelpMap: React.FC<NearbyHelpMapProps> = ({
             selectedLocation={selectedLocation}
           />
 
-          {/* User Location Marker */}
+          {/* User Location Marker with Radar Pulse */}
           <AdvancedMarker
             position={{ lat: userLocation.latitude, lng: userLocation.longitude }}
             title={userLocation.localityLabel ? `Search Point: ${userLocation.localityLabel}` : 'Your Approximate Location'}
