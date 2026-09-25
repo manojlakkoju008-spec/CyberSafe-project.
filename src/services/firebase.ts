@@ -58,15 +58,3 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   console.error('Firestore Security / Operation Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
-
-// Connection test on boot
-async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firebase network connectivity notice: client is running in sandboxed or offline mode.');
-    }
-  }
-}
-testConnection();
