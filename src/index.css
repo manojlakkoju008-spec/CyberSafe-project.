@@ -1,5 +1,73 @@
 @import "tailwindcss";
 
+:root {
+  --primary-navy: #0B1F33;
+  --primary-blue: #1261A0;
+  --secondary-blue: #2878B5;
+  --security-green: #19A974;
+  --bg-page: #F7F9FC;
+  --surface-card: #FFFFFF;
+  --text-primary: #14202B;
+  --text-secondary: #667085;
+  --border-subtle: #E5E7EB;
+  --color-warning: #F59E0B;
+  --color-danger: #DC3545;
+  --color-info: #3B82F6;
+}
+
+@theme {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --color-navy-950: #071422;
+  --color-navy-900: #0B1F33;
+  --color-navy-800: #102C48;
+  --color-navy-700: #173E63;
+  --color-brand-600: #1261A0;
+  --color-brand-700: #0E4D80;
+  --color-brand-500: #2878B5;
+  --color-brand-400: #4B94C8;
+  --color-brand-100: #EBF5FB;
+  --color-brand-50: #F3F8FC;
+  --color-security-600: #19A974;
+  --color-security-700: #13885C;
+  --color-security-100: #E8F8F2;
+  --color-security-50: #F3FBF7;
+  --color-page-bg: #F7F9FC;
+  --color-text-main: #14202B;
+  --color-text-muted: #667085;
+  --color-border-subtle: #E5E7EB;
+}
+
 body {
-  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans);
+  background-color: #F7F9FC;
+  color: #14202B;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Accessible focus ring style */
+:focus-visible {
+  outline: 2px solid #1261A0;
+  outline-offset: 2px;
+}
+
+/* Smooth subtle transitions */
+* {
+  box-sizing: border-box;
+}
+
+/* Custom scrollbars that match the clean, professional look */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #F7F9FC;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
 }

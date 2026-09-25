@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost' | 'success';
   size?: 'sm' | 'md' | 'lg';
   icon?: React.ReactNode;
   iconPosition?: 'left' | 'right';
@@ -18,22 +18,29 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const variantStyles = {
-    primary: 'bg-slate-900 text-white hover:bg-slate-800 active:bg-slate-950 shadow-sm border border-slate-900/10',
-    secondary: 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 shadow-sm border border-blue-700/20',
-    outline: 'bg-white text-slate-700 hover:bg-slate-50 active:bg-slate-100 border border-slate-200 shadow-xs',
-    danger: 'bg-rose-600 text-white hover:bg-rose-700 active:bg-rose-800 shadow-sm border border-rose-700/20',
-    ghost: 'bg-transparent text-slate-600 hover:bg-slate-100 active:bg-slate-200 border-transparent'
+    primary:
+      'bg-[#1261A0] text-white hover:bg-[#0E4D80] active:bg-[#0B3C65] border border-[#1261A0] shadow-xs hover:shadow-sm transition-all duration-150',
+    secondary:
+      'bg-white text-[#0B1F33] hover:text-[#1261A0] hover:bg-[#F7F9FC] active:bg-slate-100 border border-[#E5E7EB] hover:border-slate-300 shadow-xs transition-all duration-150',
+    outline:
+      'bg-white text-[#14202B] hover:text-[#1261A0] hover:bg-[#F7F9FC] active:bg-slate-100 border border-[#E5E7EB] hover:border-slate-300 shadow-xs transition-all duration-150',
+    danger:
+      'bg-[#DC3545] text-white hover:bg-[#B02A37] active:bg-[#8F1F2C] border border-[#DC3545] shadow-xs hover:shadow-sm transition-all duration-150',
+    success:
+      'bg-[#19A974] text-white hover:bg-[#13885C] active:bg-[#0F6F4B] border border-[#19A974] shadow-xs hover:shadow-sm transition-all duration-150',
+    ghost:
+      'bg-transparent text-[#667085] hover:text-[#0B1F33] hover:bg-[#F7F9FC] active:bg-slate-100 border border-transparent transition-colors duration-150',
   };
 
   const sizeStyles = {
-    sm: 'text-xs px-3 py-1.5 rounded-lg gap-1.5 font-medium',
-    md: 'text-sm px-4 py-2 rounded-lg gap-2 font-medium',
-    lg: 'text-base px-5 py-2.5 rounded-xl gap-2.5 font-semibold'
+    sm: 'text-xs px-3 py-1.5 rounded-lg gap-1.5 font-semibold min-h-[34px]',
+    md: 'text-sm px-4 py-2 rounded-lg gap-2 font-semibold min-h-[40px]',
+    lg: 'text-base px-5 py-2.5 rounded-lg gap-2.5 font-semibold min-h-[46px]',
   };
 
   return (
     <button
-      className={`inline-flex items-center justify-center cursor-pointer transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-blue-500 focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed select-none ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
+      className={`inline-flex items-center justify-center cursor-pointer font-semibold select-none focus-visible:outline-2 focus-visible:outline-[#1261A0] focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
       disabled={disabled}
       {...props}
     >

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, ExternalLink, PhoneCall, AlertTriangle, FileText, Lock, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, ExternalLink, Lock, FileText } from 'lucide-react';
 import { PageType } from '../../types';
 import { INDIA_REPORTING_INFO } from '../../data/reportData';
 
@@ -9,24 +9,24 @@ interface FooterProps {
 
 export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
   return (
-    <footer className="bg-slate-900 text-slate-400 text-sm border-t border-slate-800">
+    <footer className="bg-[#0B1F33] text-slate-300 text-sm border-t border-slate-800">
       {/* Emergency Helpline Strip */}
       <div className="border-b border-slate-800/80 py-6 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center shrink-0">
-              <ShieldCheck className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-[#1261A0]/20 text-[#2878B5] border border-[#1261A0]/30 flex items-center justify-center shrink-0">
+              <ShieldCheck className="w-5 h-5 text-[#19A974]" />
             </div>
             <div>
-              <div className="text-white font-bold text-sm">CyberSafe Platform</div>
-              <p className="text-xs text-slate-400">Cyber Safety Awareness and Cybercrime Prevention Platform</p>
+              <div className="text-white font-bold text-base tracking-tight">CyberSafe Platform</div>
+              <p className="text-xs text-slate-400">Cyber Safety Awareness & Cybercrime Prevention Platform</p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3 text-xs">
-            <div className="bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center gap-2">
-              <span className="text-slate-400">Cybercrime Helpline:</span>
-              <a href="tel:1930" className="text-rose-400 font-extrabold text-sm hover:underline">
+            <div className="bg-[#102C48] px-3.5 py-2 rounded-lg border border-slate-700/80 flex items-center gap-2">
+              <span className="text-slate-300 font-medium">National Cybercrime Helpline:</span>
+              <a href="tel:1930" className="text-[#DC3545] font-extrabold text-sm hover:underline">
                 1930
               </a>
             </div>
@@ -35,7 +35,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               href={INDIA_REPORTING_INFO.portalUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 px-3 py-1.5 rounded-lg border border-blue-500/40 flex items-center gap-1.5 font-semibold transition-colors"
+              className="bg-[#1261A0] hover:bg-[#0E4D80] text-white px-3.5 py-2 rounded-lg font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
             >
               <span>{INDIA_REPORTING_INFO.portalLabel}</span>
               <ExternalLink className="w-3.5 h-3.5" />
@@ -45,12 +45,14 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
       </div>
 
       {/* Main Footer Body */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 grid grid-cols-1 md:grid-cols-4 gap-8">
-        {/* Brand & Tagline */}
-        <div className="space-y-3 md:col-span-1">
-          <div className="text-lg font-black tracking-tight text-white">CyberSafe</div>
-          <p className="text-xs font-medium text-slate-300">
-            "Practical cybersecurity awareness for everyday digital life."
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 grid grid-cols-1 md:grid-cols-4 gap-10">
+        {/* Brand & Purpose */}
+        <div className="space-y-3.5 md:col-span-1">
+          <div className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+            <span>Cyber<span className="text-[#2878B5]">Safe</span></span>
+          </div>
+          <p className="text-xs font-semibold text-slate-200">
+            "Calm, practical cybersecurity guidance for everyday digital life."
           </p>
           <p className="text-xs leading-relaxed text-slate-400">
             An academic community project dedicated to digital resilience, scam recognition, and rapid incident containment for citizens, students, and families.
@@ -59,46 +61,51 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
         {/* Primary Navigation Links */}
         <div className="space-y-3">
-          <h4 className="text-white font-bold text-xs tracking-wider uppercase">Platform Features</h4>
-          <ul className="space-y-2 text-xs">
+          <h4 className="text-white font-bold text-xs tracking-wider uppercase">Platform Tools</h4>
+          <ul className="space-y-2.5 text-xs">
             <li>
               <button 
+                type="button"
                 onClick={() => onNavigate('learn')} 
-                className="hover:text-white transition-colors cursor-pointer text-left"
+                className="text-slate-300 hover:text-white transition-colors cursor-pointer text-left"
               >
-                Learn: Threat Guides & Basics
+                Learn: Threat Blueprints & Safety Basics
               </button>
             </li>
             <li>
               <button 
+                type="button"
                 onClick={() => onNavigate('prevent')} 
-                className="hover:text-white transition-colors cursor-pointer text-left"
+                className="text-slate-300 hover:text-white transition-colors cursor-pointer text-left"
               >
-                Prevent: Personal Safety Checklist
+                Prevent: 16-Point Safety Health Checklist
               </button>
             </li>
             <li>
               <button 
+                type="button"
                 onClick={() => onNavigate('detect')} 
-                className="hover:text-white transition-colors cursor-pointer text-left"
+                className="text-slate-300 hover:text-white transition-colors cursor-pointer text-left"
               >
-                Detect: Check Before You Click (URL)
+                Detect: URL & Message Threat Scanner
               </button>
             </li>
             <li>
               <button 
+                type="button"
                 onClick={() => onNavigate('report')} 
-                className="hover:text-white transition-colors cursor-pointer text-left"
+                className="text-slate-300 hover:text-white transition-colors cursor-pointer text-left"
               >
-                Report: Official Channels & Containment
+                Report: Containment & Nearby Assistance
               </button>
             </li>
             <li>
               <button 
+                type="button"
                 onClick={() => onNavigate('quiz')} 
-                className="hover:text-white transition-colors cursor-pointer text-left"
+                className="text-slate-300 hover:text-white transition-colors cursor-pointer text-left"
               >
-                Quiz: Can You Spot the Scam?
+                Quiz: Scam Recognition Assessment
               </button>
             </li>
           </ul>
@@ -106,24 +113,26 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
         {/* Institutional & Legal Links */}
         <div className="space-y-3">
-          <h4 className="text-white font-bold text-xs tracking-wider uppercase">Policy & Scope</h4>
-          <ul className="space-y-2 text-xs">
+          <h4 className="text-white font-bold text-xs tracking-wider uppercase">Policy & Governance</h4>
+          <ul className="space-y-2.5 text-xs">
             <li>
               <button 
+                type="button"
                 onClick={() => onNavigate('privacy')} 
-                className="hover:text-white transition-colors cursor-pointer text-left flex items-center gap-1.5"
+                className="text-slate-300 hover:text-white transition-colors cursor-pointer text-left flex items-center gap-1.5"
               >
-                <Lock className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Privacy Architecture</span>
+                <Lock className="w-3.5 h-3.5 text-[#19A974]" />
+                <span>Zero-Logging Privacy Architecture</span>
               </button>
             </li>
             <li>
               <button 
+                type="button"
                 onClick={() => onNavigate('disclaimer')} 
-                className="hover:text-white transition-colors cursor-pointer text-left flex items-center gap-1.5"
+                className="text-slate-300 hover:text-white transition-colors cursor-pointer text-left flex items-center gap-1.5"
               >
-                <FileText className="w-3.5 h-3.5 text-amber-400" />
-                <span>Disclaimer & Boundaries</span>
+                <FileText className="w-3.5 h-3.5 text-[#F59E0B]" />
+                <span>Disclaimer & Educational Boundaries</span>
               </button>
             </li>
             <li>
@@ -142,20 +151,20 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
         {/* Mandatory Explicit Disclaimers Column */}
         <div className="space-y-3">
-          <h4 className="text-white font-bold text-xs tracking-wider uppercase">Public Safety Disclaimer</h4>
-          <div className="p-3.5 rounded-xl bg-slate-800/80 border border-slate-700/80 text-xs text-slate-300 leading-relaxed space-y-2">
+          <h4 className="text-white font-bold text-xs tracking-wider uppercase">Public Safety Notice</h4>
+          <div className="p-4 rounded-xl bg-[#102C48] border border-slate-700/80 text-xs text-slate-300 leading-relaxed space-y-2.5">
             <p>
-              <strong>"CyberSafe is an educational and assistance platform. It is not a government agency and does not replace official reporting systems, law enforcement, emergency services or professional legal advice."</strong>
+              <strong>CyberSafe is an educational and public assistance platform. It is not a law enforcement agency and does not replace official police reporting systems, emergency services, or professional legal counsel.</strong>
             </p>
-            <p className="text-[11px] text-slate-400 border-t border-slate-700 pt-1.5">
-              <strong>"A heuristic URL assessment cannot guarantee that a website is safe or malicious."</strong>
+            <p className="text-[11px] text-slate-400 border-t border-slate-700/80 pt-2">
+              A heuristic URL or message scan is advisory and cannot guarantee that an external web resource is safe or malicious.
             </p>
           </div>
         </div>
       </div>
 
       {/* Copyright Bar */}
-      <div className="border-t border-slate-800 py-6 px-4 sm:px-6 lg:px-8 text-center text-xs text-slate-500">
+      <div className="border-t border-slate-800/80 py-6 px-4 sm:px-6 lg:px-8 text-center text-xs text-slate-400">
         <p>
           © {new Date().getFullYear()} CyberSafe • Academic Community Project for Cyber Safety Awareness and Cybercrime Prevention.
         </p>

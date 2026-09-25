@@ -11,27 +11,27 @@ export const Badge: React.FC<BadgeProps> = ({
   children,
   variant = 'neutral',
   size = 'md',
-  className = ''
+  className = '',
 }) => {
   const variantStyles = {
-    safe: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
-    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
-    warning: 'bg-amber-50 text-amber-800 border-amber-200/80',
-    danger: 'bg-rose-50 text-rose-700 border-rose-200/80',
-    info: 'bg-sky-50 text-sky-700 border-sky-200/80',
-    blue: 'bg-blue-50 text-blue-700 border-blue-200/80',
-    purple: 'bg-purple-50 text-purple-700 border-purple-200/80',
-    neutral: 'bg-slate-100 text-slate-700 border-slate-200'
+    safe: 'bg-[#E8F8F2] text-[#0E7A52] border-[#B6EAD6]',
+    emerald: 'bg-[#E8F8F2] text-[#0E7A52] border-[#B6EAD6]',
+    warning: 'bg-[#FEF3C7] text-[#92400E] border-[#FDE68A]',
+    danger: 'bg-[#FDE8E8] text-[#9B1C1C] border-[#F8B4B4]',
+    info: 'bg-[#EBF5FB] text-[#0C4A7A] border-[#C2E0F4]',
+    blue: 'bg-[#EBF5FB] text-[#0C4A7A] border-[#C2E0F4]',
+    purple: 'bg-[#F5F3FF] text-[#5B21B6] border-[#DDD6FE]',
+    neutral: 'bg-[#F7F9FC] text-[#667085] border-[#E5E7EB]',
   };
 
   const sizeStyles = {
-    sm: 'text-xs px-2 py-0.5 font-medium',
-    md: 'text-xs sm:text-sm px-2.5 py-1 font-medium'
+    sm: 'text-[11px] px-2 py-0.5 font-medium',
+    md: 'text-xs px-2.5 py-0.5 font-medium',
   };
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border whitespace-nowrap tracking-tight ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-md border whitespace-nowrap tracking-tight ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
     >
       {children}
     </span>

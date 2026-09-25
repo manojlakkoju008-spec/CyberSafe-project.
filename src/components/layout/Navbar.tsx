@@ -11,7 +11,6 @@ import {
   X, 
   Home,
   User as UserIcon,
-  ShieldAlert,
   LogOut,
   Lock,
   Sparkles,
@@ -61,22 +60,23 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
+    <header className="sticky top-0 z-40 bg-white/98 backdrop-blur-md border-b border-[#E5E7EB]">
       {/* Top Academic Community Banner */}
-      <div className="bg-slate-900 text-slate-300 text-xs py-1.5 px-4">
+      <div className="bg-[#0B1F33] text-slate-300 text-xs py-2 px-4 sm:px-6 lg:px-8 border-b border-slate-800/80">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="inline-block w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span className="font-medium text-slate-200">Cyber Safety Awareness & Cybercrime Prevention Platform</span>
-            <span className="hidden md:inline text-slate-400">• Academic Community Initiative</span>
+            <span className="inline-block w-2 h-2 rounded-full bg-[#19A974]"></span>
+            <span className="font-semibold text-white tracking-tight">Cyber Safety Awareness & Cybercrime Prevention Platform</span>
+            <span className="hidden md:inline text-slate-400 font-normal">· Academic Community Initiative</span>
           </div>
-          <div className="hidden sm:flex items-center gap-4 text-slate-400 text-xs">
-            <span>Non-Commercial Public Service</span>
+          <div className="hidden sm:flex items-center gap-4 text-slate-300 text-xs">
+            <span className="text-slate-400">Public Service Resource</span>
             <button 
+              type="button"
               onClick={onOpenEmergency}
-              className="text-amber-400 hover:text-amber-300 flex items-center gap-1 font-medium cursor-pointer"
+              className="text-amber-300 hover:text-amber-200 flex items-center gap-1.5 font-semibold transition-colors cursor-pointer"
             >
-              <AlertTriangle className="w-3.5 h-3.5" />
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
               <span>Suspect an active hack?</span>
             </button>
           </div>
@@ -89,21 +89,21 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Logo & Brand */}
           <div 
             onClick={() => handleNavClick('home')}
-            className="flex items-center gap-2.5 cursor-pointer group select-none"
+            className="flex items-center gap-3 cursor-pointer group select-none"
           >
-            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs group-hover:bg-blue-700 transition-colors">
+            <div className="w-10 h-10 rounded-xl bg-[#1261A0] text-white flex items-center justify-center shadow-xs group-hover:bg-[#0E4D80] transition-colors">
               <ShieldCheck className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xl font-extrabold tracking-tight text-slate-900">
-                  Cyber<span className="text-blue-600">Safe</span>
+                <span className="text-xl font-bold tracking-tight text-[#0B1F33]">
+                  Cyber<span className="text-[#1261A0]">Safe</span>
                 </span>
-                <span className="text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                <span className="text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-slate-100 text-[#0B1F33] border border-[#E5E7EB]">
                   Community Ed.
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 font-medium hidden sm:block">Digital Safety for Everyone</p>
+              <p className="text-[11px] text-[#667085] font-medium hidden sm:block">Digital Safety for Everyone</p>
             </div>
           </div>
 
@@ -114,14 +114,15 @@ export const Navbar: React.FC<NavbarProps> = ({
               return (
                 <button
                   key={item.id}
+                  type="button"
                   onClick={() => handleNavClick(item.id)}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                  className={`relative flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer ${
                     isActive
-                      ? 'bg-blue-50 text-blue-700 font-semibold'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                      ? 'text-[#1261A0] bg-[#1261A0]/8 after:absolute after:bottom-0 after:left-3 after:right-3 after:h-0.5 after:bg-[#1261A0] after:rounded-full'
+                      : 'text-[#667085] hover:text-[#0B1F33] hover:bg-[#F7F9FC]'
                   }`}
                 >
-                  {item.icon}
+                  <span className={isActive ? 'text-[#1261A0]' : 'text-[#667085]'}>{item.icon}</span>
                   <span>{item.label}</span>
                 </button>
               );
@@ -130,11 +131,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Admin Link if admin */}
             {isAdmin && (
               <button
+                type="button"
                 onClick={() => handleNavClick('admin')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors uppercase tracking-wider ${
                   currentPage === 'admin'
-                    ? 'bg-purple-100 text-purple-800'
-                    : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
+                    ? 'bg-[#0B1F33] text-white'
+                    : 'bg-slate-100 text-[#0B1F33] hover:bg-slate-200'
                 }`}
               >
                 <Lock className="w-3.5 h-3.5" />
@@ -144,24 +146,25 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
 
           {/* Right Action & User Controls */}
-          <div className="flex items-center gap-2 sm:gap-2.5">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* AI Guide Navigation Trigger */}
             <button
+              type="button"
               onClick={() => openGuide()}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 text-blue-800 border border-blue-200/90 text-xs font-bold cursor-pointer transition-all shadow-2xs hover:shadow-xs active:scale-95 select-none"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F7F9FC] hover:bg-slate-100 text-[#0B1F33] border border-[#E5E7EB] text-xs font-semibold cursor-pointer transition-colors shadow-2xs select-none"
               title="Open CyberSafe AI Guide"
             >
-              <Sparkles className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
-              <span className="hidden sm:inline">AI Guide</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+              <Sparkles className="w-3.5 h-3.5 text-[#1261A0]" />
+              <span className="hidden sm:inline">AI Assistant</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-[#19A974]"></span>
             </button>
 
             <Button
               variant="outline"
               size="sm"
-              icon={<AlertTriangle className="w-3.5 h-3.5 text-rose-600" />}
+              icon={<AlertTriangle className="w-3.5 h-3.5 text-[#DC3545]" />}
               onClick={onOpenEmergency}
-              className="text-xs sm:text-sm font-medium border-rose-200 text-rose-700 hover:bg-rose-50"
+              className="text-xs sm:text-sm font-semibold border-rose-200 text-[#DC3545] hover:bg-rose-50/60"
             >
               <span className="hidden sm:inline">Emergency Help</span>
               <span className="sm:hidden">Urgent</span>
@@ -171,10 +174,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             {isAuthenticated ? (
               <div className="relative">
                 <button
+                  type="button"
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="flex items-center gap-2 pl-2 pr-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 transition cursor-pointer text-xs font-semibold text-slate-800"
+                  className="flex items-center gap-2 pl-2 pr-2.5 py-1.5 rounded-lg border border-[#E5E7EB] hover:border-slate-300 bg-white hover:bg-[#F7F9FC] transition cursor-pointer text-xs font-semibold text-[#0B1F33]"
                 >
-                  <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
+                  <div className="w-7 h-7 rounded-md bg-[#1261A0] text-white flex items-center justify-center font-bold text-xs">
                     {(user?.displayName || firebaseUser?.email || 'U')[0].toUpperCase()}
                   </div>
                   <span className="hidden sm:inline max-w-[100px] truncate">
@@ -184,13 +188,13 @@ export const Navbar: React.FC<NavbarProps> = ({
 
                 {/* Profile Dropdown Menu */}
                 {userDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 py-2 z-50 animate-fadeIn text-xs">
-                    <div className="px-4 py-2 border-b border-slate-100">
-                      <p className="font-bold text-slate-900 truncate">{user?.displayName || 'CyberSafe Member'}</p>
-                      <p className="text-slate-500 truncate">{firebaseUser?.email}</p>
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-md border border-[#E5E7EB] py-2 z-50 text-xs">
+                    <div className="px-4 py-2 border-b border-[#E5E7EB]">
+                      <p className="font-bold text-[#0B1F33] truncate">{user?.displayName || 'CyberSafe Member'}</p>
+                      <p className="text-[#667085] truncate">{firebaseUser?.email}</p>
                       <div className="mt-1">
                         <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${
-                          isAdmin ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                          isAdmin ? 'bg-purple-100 text-purple-800' : 'bg-[#EBF5FB] text-[#0C4A7A]'
                         }`}>
                           {user?.role || 'Member'}
                         </span>
@@ -198,30 +202,33 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </div>
 
                     <button
+                      type="button"
                       onClick={() => handleNavClick('profile')}
-                      className="w-full flex items-center gap-2 px-4 py-2 text-slate-700 hover:bg-slate-50 text-left cursor-pointer"
+                      className="w-full flex items-center gap-2 px-4 py-2 text-[#14202B] hover:bg-[#F7F9FC] text-left cursor-pointer"
                     >
-                      <UserIcon className="w-4 h-4 text-slate-500" />
+                      <UserIcon className="w-4 h-4 text-[#667085]" />
                       <span>Account Safety Profile</span>
                     </button>
 
                     {isAdmin && (
                       <button
+                        type="button"
                         onClick={() => handleNavClick('admin')}
-                        className="w-full flex items-center gap-2 px-4 py-2 text-purple-700 hover:bg-purple-50 text-left font-semibold cursor-pointer"
+                        className="w-full flex items-center gap-2 px-4 py-2 text-[#0B1F33] hover:bg-[#F7F9FC] text-left font-semibold cursor-pointer"
                       >
-                        <Lock className="w-4 h-4 text-purple-600" />
+                        <Lock className="w-4 h-4 text-[#1261A0]" />
                         <span>Admin Control Center</span>
                       </button>
                     )}
 
-                    <div className="border-t border-slate-100 my-1"></div>
+                    <div className="border-t border-[#E5E7EB] my-1"></div>
 
                     <button
+                      type="button"
                       onClick={handleLogout}
-                      className="w-full flex items-center gap-2 px-4 py-2 text-rose-600 hover:bg-rose-50 text-left cursor-pointer"
+                      className="w-full flex items-center gap-2 px-4 py-2 text-[#DC3545] hover:bg-rose-50 text-left cursor-pointer"
                     >
-                      <LogOut className="w-4 h-4 text-rose-500" />
+                      <LogOut className="w-4 h-4 text-[#DC3545]" />
                       <span>Sign Out</span>
                     </button>
                   </div>
@@ -240,8 +247,9 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* Mobile menu button */}
             <button
+              type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 cursor-pointer"
+              className="md:hidden p-2 rounded-lg text-[#14202B] hover:bg-slate-100 cursor-pointer"
               aria-label="Toggle menu"
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -252,17 +260,18 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-6 space-y-2 animate-in slide-in-from-top-2">
+        <div className="md:hidden border-t border-[#E5E7EB] bg-white px-4 pt-3 pb-6 space-y-2">
           {navItems.map((item) => {
             const isActive = currentPage === item.id;
             return (
               <button
                 key={item.id}
+                type="button"
                 onClick={() => handleNavClick(item.id)}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
                   isActive
-                    ? 'bg-blue-600 text-white font-semibold'
-                    : 'text-slate-700 hover:bg-slate-100'
+                    ? 'bg-[#1261A0] text-white'
+                    : 'text-[#14202B] hover:bg-[#F7F9FC]'
                 }`}
               >
                 {item.icon}
@@ -273,23 +282,25 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Mobile AI Guide Button */}
           <button
+            type="button"
             onClick={() => {
               setMobileMenuOpen(false);
               openGuide();
             }}
-            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-800 border border-blue-200 transition-colors"
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold bg-[#F7F9FC] text-[#0B1F33] border border-[#E5E7EB] transition-colors"
           >
-            <Sparkles className="w-4 h-4 text-blue-600" />
-            <span>CyberSafe AI Guide</span>
+            <Sparkles className="w-4 h-4 text-[#1261A0]" />
+            <span>CyberSafe AI Assistant</span>
           </button>
 
           {isAdmin && (
             <button
+              type="button"
               onClick={() => handleNavClick('admin')}
-              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors ${
+              className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
                 currentPage === 'admin'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-purple-50 text-purple-800'
+                  ? 'bg-[#0B1F33] text-white'
+                  : 'bg-slate-100 text-[#0B1F33]'
               }`}
             >
               <Lock className="w-4 h-4" />
@@ -298,19 +309,21 @@ export const Navbar: React.FC<NavbarProps> = ({
           )}
 
           {isAuthenticated ? (
-            <div className="pt-2 border-t border-slate-200 space-y-2">
+            <div className="pt-2 border-t border-[#E5E7EB] space-y-2">
               <button
+                type="button"
                 onClick={() => handleNavClick('profile')}
-                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-800 hover:bg-slate-100"
+                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold text-[#14202B] hover:bg-[#F7F9FC]"
               >
-                <UserIcon className="w-4 h-4 text-blue-600" />
+                <UserIcon className="w-4 h-4 text-[#1261A0]" />
                 <span>My Safety Profile ({user?.displayName || firebaseUser?.email})</span>
               </button>
               <button
+                type="button"
                 onClick={handleLogout}
-                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-rose-600 hover:bg-rose-50"
+                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold text-[#DC3545] hover:bg-rose-50"
               >
-                <LogOut className="w-4 h-4 text-rose-500" />
+                <LogOut className="w-4 h-4 text-[#DC3545]" />
                 <span>Sign Out</span>
               </button>
             </div>

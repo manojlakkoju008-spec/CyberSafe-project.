@@ -13,14 +13,16 @@ export const Card: React.FC<CardProps> = ({
   className = '',
   id,
   onClick,
-  hoverable = false
+  hoverable = false,
 }) => {
   return (
     <div
       id={id}
       onClick={onClick}
-      className={`bg-white rounded-xl border border-slate-200/80 shadow-xs transition-all duration-200 ${
-        hoverable ? 'hover:border-slate-300 hover:shadow-md cursor-pointer' : ''
+      className={`bg-white rounded-2xl border border-[#E5E7EB] shadow-xs transition-all duration-200 ${
+        hoverable
+          ? 'hover:border-slate-300 hover:shadow-sm hover:-translate-y-0.5 cursor-pointer'
+          : ''
       } ${className}`}
     >
       {children}

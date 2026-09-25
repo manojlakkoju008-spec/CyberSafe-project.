@@ -57,20 +57,21 @@ export const AiGuideQuickSuggestions: React.FC = () => {
   const suggestions = getSuggestions();
 
   return (
-    <div className="p-3 bg-slate-50 border-t border-slate-200">
-      <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 mb-2 uppercase tracking-wider">
-        <Sparkles className="w-3 h-3 text-blue-600" />
+    <div className="p-3.5 bg-[#F7F9FC] border-t border-[#E5E7EB]">
+      <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#0B1F33] mb-2 uppercase tracking-wider">
+        <Sparkles className="w-3 h-3 text-[#1261A0]" />
         <span>Quick Questions & Scenarios</span>
       </div>
       <div className="flex flex-wrap gap-1.5">
         {suggestions.map((s, idx) => (
           <button
             key={idx}
+            type="button"
             onClick={() => sendMessage(s)}
-            className="text-xs bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-blue-300 transition-colors cursor-pointer text-left flex items-center gap-1 group shadow-2xs"
+            className="text-xs bg-white hover:bg-[#F7F9FC] text-[#14202B] hover:text-[#1261A0] px-2.5 py-1.5 rounded-lg border border-[#E5E7EB] hover:border-[#1261A0] transition-colors cursor-pointer text-left flex items-center gap-1 group shadow-2xs"
           >
             <span className="truncate max-w-[280px]">{s}</span>
-            <ArrowUpRight className="w-3 h-3 text-slate-400 group-hover:text-blue-600 shrink-0" />
+            <ArrowUpRight className="w-3 h-3 text-[#667085] group-hover:text-[#1261A0] shrink-0" />
           </button>
         ))}
       </div>
