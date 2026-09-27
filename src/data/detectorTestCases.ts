@@ -22,10 +22,10 @@ export const DETECTOR_TEST_CASES: DetectorTestCase[] = [
     id: 'tc-unencrypted-http',
     name: 'Unencrypted Plain HTTP Domain',
     category: 'protocol',
-    url: 'http://example-news-archive.org/articles/weekly-brief',
-    expectedRiskLevel: 'Low Risk',
+    url: 'http://example.com/articles/weekly-brief',
+    expectedRiskLevel: 'Medium Risk',
     description: 'Standard domain but using plain HTTP (port 80) without TLS encryption, exposing transmitted data to cleartext interception.',
-    keySignalsToDetect: ['Unencrypted HTTP protocol (+25 pts)', 'Standard domain format']
+    keySignalsToDetect: ['Unencrypted HTTP protocol (+12 pts)', 'Standard domain format']
   },
   {
     id: 'tc-raw-ip-address',
@@ -95,9 +95,9 @@ export const DETECTOR_TEST_CASES: DetectorTestCase[] = [
     name: 'Nonexistent Domain (NXDOMAIN)',
     category: 'host',
     url: 'https://this-domain-definitely-does-not-exist-123987xyz.org/',
-    expectedRiskLevel: 'Medium Risk',
+    expectedRiskLevel: 'High Risk',
     description: 'A syntactically valid domain that fails DNS resolution because it has never been registered or has no active DNS records.',
-    keySignalsToDetect: ['DNS resolution failure', 'Domain nonexistent (NXDOMAIN)', 'Educational distinction from confirmed malware']
+    keySignalsToDetect: ['DNS resolution failure', 'Domain nonexistent (NXDOMAIN)', 'Unverified status']
   },
   {
     id: 'tc-brand-typosquatting',
@@ -113,9 +113,18 @@ export const DETECTOR_TEST_CASES: DetectorTestCase[] = [
     name: 'Live Plain HTTP Website (No TLS)',
     category: 'protocol',
     url: 'http://neverssl.com/',
-    expectedRiskLevel: 'Low Risk',
+    expectedRiskLevel: 'Medium Risk',
     description: 'Real live public website operating intentionally over plain HTTP (port 80) without SSL/TLS encryption.',
-    keySignalsToDetect: ['Live HTTP reachability', 'Unencrypted transport warning', 'Clean domain structure']
+    keySignalsToDetect: ['Live HTTP reachability', 'Unencrypted transport warning', 'Security posture penalty']
+  },
+  {
+    id: 'tc-vulnerable-testphp',
+    name: 'Deliberately Vulnerable Security Test Site',
+    category: 'protocol',
+    url: 'http://testphp.vulnweb.com/',
+    expectedRiskLevel: 'Medium Risk',
+    description: 'Public security practice portal operating over unencrypted HTTP with missing defensive security headers and search forms.',
+    keySignalsToDetect: ['Unencrypted HTTP protocol', 'Missing defensive headers (CSP, HSTS)', 'Educational limitation disclaimer']
   },
   {
     id: 'tc-unusual-port',

@@ -413,6 +413,8 @@ export interface WebpageContentResult {
   hasPiiFields: boolean;
   sensitiveFieldsDetected: string[];
   externalScriptsCount?: number;
+  hasLimitedContent?: boolean;
+  contentLengthBytes?: number;
 }
 
 export interface PhishingIndicatorItem {
@@ -555,6 +557,8 @@ export interface UrlScanAssessment {
   urlLength: number;
   hostnameLength: number;
   // Layered Risk Assessment
+  verificationStatus?: 'VERIFIED_LIVE' | 'UNVERIFIED_NONEXISTENT' | 'UNVERIFIED_UNREACHABLE' | 'LIMITED_CONTENT' | 'ACCESS_RESTRICTED' | 'INVALID_SYNTAX';
+  verificationStatusText?: string;
   structuralScore: number; // 0 - 100
   riskScore: number; // Final Combined 0 - 100
   riskLevel: 'Low Risk' | 'Medium Risk' | 'High Risk';

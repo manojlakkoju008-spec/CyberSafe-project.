@@ -780,122 +780,173 @@ Notice: CyberSafe provides first-level threat analysis grounded in actual retrie
           {(() => {
             const colors = getRiskColor(assessment.riskScore);
             return (
-              <Card className={`p-6 sm:p-8 border shadow-sm ${colors.bg} ${colors.border}`}>
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                  <div className="space-y-3.5 flex-1">
-                    <div className="flex items-center gap-2.5 flex-wrap">
-                      <span className="text-xs font-extrabold uppercase tracking-wider text-[#0B1F33]">
-                        CYBERSAFE DETECT
-                      </span>
-
-                      <span className={`px-2.5 py-0.5 rounded-md text-xs font-bold ${colors.badge}`}>
-                        OVERALL RISK: {assessment.riskCategory || (assessment.riskScore >= 75 ? 'CRITICAL' : assessment.riskScore >= 50 ? 'HIGH' : assessment.riskScore >= 25 ? 'MODERATE' : 'LOW')}
-                      </span>
-
-                      <span className="text-xs font-bold px-2.5 py-0.5 rounded-md bg-white border border-slate-200 text-slate-900 shadow-2xs">
-                        Risk Score: {assessment.riskScore} / 100
-                      </span>
-
-                      <span className="text-xs font-bold px-2.5 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 shadow-2xs">
-                        Confidence: {(assessment.confidenceLevel || 'HIGH').toUpperCase()}
-                      </span>
-                    </div>
-
+              <div className="space-y-4">
+                {/* Prominent Warning Banner for Nonexistent / Unreachable / Unencrypted destinations */}
+                {assessment.verificationStatus === 'UNVERIFIED_NONEXISTENT' && (
+                  <div className="p-4 bg-rose-600 text-white rounded-2xl shadow-sm flex items-start gap-3.5 animate-in fade-in">
+                    <AlertOctagon className="w-6 h-6 text-white shrink-0 mt-0.5" />
                     <div className="space-y-1">
-                      <div className="text-xs text-slate-500 font-mono">Analyzed URL:</div>
-                      <div className="text-sm sm:text-base font-bold text-slate-900 font-mono break-all bg-white/70 px-3 py-1.5 rounded-lg border border-slate-200/80 inline-block">
-                        {assessment.normalizedUrl}
+                      <div className="font-extrabold text-sm uppercase tracking-wide">
+                        🔴 WEBSITE COULD NOT BE VERIFIED
                       </div>
-                    </div>
-
-                    <h2 className="text-xl sm:text-2xl font-extrabold text-[#0B1F33] leading-snug">
-                      {assessment.riskScore >= 75
-                        ? 'Critical Risk: Severe Threat Indicators Identified'
-                        : assessment.riskScore >= 50
-                        ? 'High Risk: Elevated Deception or Security Markers Detected'
-                        : assessment.riskScore >= 25
-                        ? 'Moderate Risk: Potential Anomaly or Configuration Observation'
-                        : 'Low Risk: No Significant Threats Detected on Available Checks'}
-                    </h2>
-
-                    <p className="text-xs sm:text-sm text-slate-700 max-w-3xl leading-relaxed font-medium">
-                      {assessment.executiveSummary || assessment.explanation}
-                    </p>
-
-                    {/* Coordinates Strip */}
-                    <div className="flex flex-wrap items-center gap-2 pt-2 text-xs font-mono text-slate-700">
-                      <div className="bg-white/90 px-3 py-1.5 rounded-lg border border-slate-200 flex items-center gap-1.5 shadow-2xs">
-                        {assessment.isHttps ? (
-                          <Lock className="w-3.5 h-3.5 text-emerald-600" />
-                        ) : (
-                          <Unlock className="w-3.5 h-3.5 text-rose-600" />
-                        )}
-                        <span>{assessment.protocol.toUpperCase()}</span>
-                      </div>
-
-                      <div className="bg-white/90 px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs">
-                        <span>Host: <strong>{assessment.hostname}</strong></span>
-                      </div>
-
-                      {assessment.registeredDomain && (
-                        <div className="bg-white/90 px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs">
-                          <span>Domain: <strong>{assessment.registeredDomain}</strong></span>
-                        </div>
-                      )}
-
-                      {assessment.reachability?.httpStatusCode && (
-                        <div className="bg-white/90 px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs">
-                          <span>Status: <strong>HTTP {assessment.reachability.httpStatusCode}</strong></span>
-                        </div>
-                      )}
+                      <p className="text-xs text-rose-100 leading-relaxed">
+                        The submitted domain (<strong>{assessment.hostname}</strong>) does not currently resolve through authoritative DNS (NXDOMAIN). A real, reachable website could not be confirmed. Safety cannot be guaranteed for unverified destinations.
+                      </p>
                     </div>
                   </div>
+                )}
 
-                  {/* Actions Column */}
-                  <div className="shrink-0 flex flex-col gap-2.5 max-w-sm w-full lg:w-auto">
-                    {assessment.riskScore >= 50 && (
-                      <div className="bg-white p-4 rounded-xl border-2 border-rose-400 shadow-sm space-y-2">
-                        <div className="flex items-center gap-2 text-rose-700 font-extrabold text-xs">
-                          <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
-                          <span>CAUTION ADVISED</span>
+                {assessment.verificationStatus === 'UNVERIFIED_UNREACHABLE' && (
+                  <div className="p-4 bg-amber-600 text-white rounded-2xl shadow-sm flex items-start gap-3.5 animate-in fade-in">
+                    <AlertTriangle className="w-6 h-6 text-white shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <div className="font-extrabold text-sm uppercase tracking-wide">
+                        ⚠️ WEBSITE UNREACHABLE
+                      </div>
+                      <p className="text-xs text-amber-100 leading-relaxed">
+                        Target server is currently offline or unreachable over the network. Live security properties and page content cannot be verified at this time.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {!assessment.isHttps && assessment.verificationStatus !== 'UNVERIFIED_NONEXISTENT' && (
+                  <div className="p-4 bg-amber-500 text-slate-900 rounded-2xl shadow-sm flex items-start gap-3.5 animate-in fade-in">
+                    <Unlock className="w-6 h-6 text-slate-900 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <div className="font-extrabold text-sm uppercase tracking-wide text-slate-950">
+                        ⚠️ UNENCRYPTED PLAIN HTTP CONNECTION
+                      </div>
+                      <p className="text-xs text-slate-900 leading-relaxed font-medium">
+                        This website operates over plain HTTP without TLS encryption. Any transmitted credentials, personal details, or cookies can be intercepted on local or public Wi-Fi networks.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <Card className={`p-6 sm:p-8 border shadow-sm ${colors.bg} ${colors.border}`}>
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <div className="space-y-3.5 flex-1">
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <span className="text-xs font-extrabold uppercase tracking-wider text-[#0B1F33]">
+                          CYBERSAFE DETECT
+                        </span>
+
+                        <span className={`px-2.5 py-0.5 rounded-md text-xs font-bold ${colors.badge}`}>
+                          OVERALL RISK: {assessment.riskCategory || (assessment.riskScore >= 75 ? 'CRITICAL' : assessment.riskScore >= 50 ? 'HIGH' : assessment.riskScore >= 25 ? 'MODERATE' : 'LOW')}
+                        </span>
+
+                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-md bg-white border border-slate-200 text-slate-900 shadow-2xs">
+                          Risk Score: {assessment.riskScore} / 100
+                        </span>
+
+                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 shadow-2xs">
+                          Verification: {assessment.verificationStatusText || (assessment.verificationStatus === 'UNVERIFIED_NONEXISTENT' ? 'Domain Nonexistent' : 'Verified Live Website')}
+                        </span>
+
+                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 shadow-2xs">
+                          Confidence: {(assessment.confidenceLevel || 'HIGH').toUpperCase()}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="text-xs text-slate-500 font-mono">Analyzed URL:</div>
+                        <div className="text-sm sm:text-base font-bold text-slate-900 font-mono break-all bg-white/70 px-3 py-1.5 rounded-lg border border-slate-200/80 inline-block">
+                          {assessment.normalizedUrl}
                         </div>
-                        <p className="text-xs text-slate-700 leading-relaxed">
-                          Do not provide passwords, OTPs, or payment information. If suspicious, prepare a report for the incident helper.
-                        </p>
+                      </div>
+
+                      <h2 className="text-xl sm:text-2xl font-extrabold text-[#0B1F33] leading-snug">
+                        {assessment.verificationStatus === 'UNVERIFIED_NONEXISTENT'
+                          ? 'Unverified: Domain Does Not Resolve (Cannot Confirm Safety)'
+                          : assessment.riskScore >= 75
+                          ? 'Critical Risk: Severe Threat Indicators Identified'
+                          : assessment.riskScore >= 50
+                          ? 'High Risk: Elevated Deception or Security Markers Detected'
+                          : assessment.riskScore >= 25
+                          ? 'Moderate Risk: Potential Anomaly or Configuration Observation'
+                          : 'Low Risk: No Significant Threats Detected on Available Checks'}
+                      </h2>
+
+                      <p className="text-xs sm:text-sm text-slate-700 max-w-3xl leading-relaxed font-medium">
+                        {assessment.executiveSummary || assessment.explanation}
+                      </p>
+
+                      {/* Coordinates Strip */}
+                      <div className="flex flex-wrap items-center gap-2 pt-2 text-xs font-mono text-slate-700">
+                        <div className="bg-white/90 px-3 py-1.5 rounded-lg border border-slate-200 flex items-center gap-1.5 shadow-2xs">
+                          {assessment.isHttps ? (
+                            <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                          ) : (
+                            <Unlock className="w-3.5 h-3.5 text-rose-600" />
+                          )}
+                          <span>{assessment.protocol.toUpperCase()}</span>
+                        </div>
+
+                        <div className="bg-white/90 px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs">
+                          <span>Host: <strong>{assessment.hostname}</strong></span>
+                        </div>
+
+                        {assessment.registeredDomain && (
+                          <div className="bg-white/90 px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs">
+                            <span>Domain: <strong>{assessment.registeredDomain}</strong></span>
+                          </div>
+                        )}
+
+                        {assessment.reachability?.httpStatusCode && (
+                          <div className="bg-white/90 px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs">
+                            <span>Status: <strong>HTTP {assessment.reachability.httpStatusCode}</strong></span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Actions Column */}
+                    <div className="shrink-0 flex flex-col gap-2.5 max-w-sm w-full lg:w-auto">
+                      {assessment.riskScore >= 50 && (
+                        <div className="bg-white p-4 rounded-xl border-2 border-rose-400 shadow-sm space-y-2">
+                          <div className="flex items-center gap-2 text-rose-700 font-extrabold text-xs">
+                            <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                            <span>CAUTION ADVISED</span>
+                          </div>
+                          <p className="text-xs text-slate-700 leading-relaxed">
+                            Do not provide passwords, OTPs, or payment information. If suspicious, prepare a report for the incident helper.
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onNavigateToReport('suspicious-website', assessment.normalizedUrl)}
+                            className="w-full text-xs font-bold text-rose-700 border-rose-300 hover:bg-rose-50"
+                          >
+                            Report in Incident Helper
+                          </Button>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => onNavigateToReport('suspicious-website', assessment.normalizedUrl)}
-                          className="w-full text-xs font-bold text-rose-700 border-rose-300 hover:bg-rose-50"
+                          onClick={handleCopySummary}
+                          icon={copiedSummary ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                          className="flex-1 text-xs font-bold"
                         >
-                          Report in Incident Helper
+                          {copiedSummary ? 'Copied' : 'Copy Analysis Report'}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleClear}
+                          icon={<RotateCcw className="w-3.5 h-3.5" />}
+                          className="text-xs"
+                        >
+                          Check Another
                         </Button>
                       </div>
-                    )}
-
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleCopySummary}
-                        icon={copiedSummary ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                        className="flex-1 text-xs font-bold"
-                      >
-                        {copiedSummary ? 'Copied' : 'Copy Analysis Report'}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleClear}
-                        icon={<RotateCcw className="w-3.5 h-3.5" />}
-                        className="text-xs"
-                      >
-                        Check Another
-                      </Button>
                     </div>
                   </div>
-                </div>
-              </Card>
+                </Card>
+              </div>
             );
           })()}
 

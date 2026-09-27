@@ -1404,6 +1404,7 @@ function computeTransparentRiskScore(params: {
   reputationReport: any;
   brandResult: any;
   webpageContent: any;
+  verificationStatus: 'VERIFIED_LIVE' | 'UNVERIFIED_NONEXISTENT' | 'UNVERIFIED_UNREACHABLE' | 'LIMITED_CONTENT' | 'ACCESS_RESTRICTED' | 'INVALID_SYNTAX';
 }) {
   const {
     urlAnomaliesPoints,
@@ -1420,17 +1421,38 @@ function computeTransparentRiskScore(params: {
     reputationReport,
     brandResult,
     webpageContent,
+    verificationStatus,
   } = params;
+
+  let baseDomainScore = domainDnsPoints;
+  let baseTlsScore = httpsTlsPoints;
+  let basePageScore = pageContentPoints;
+
+  // Verification State Penalties: Nonexistent or Unreachable domains cannot be classified as "Safe / 0 Risk"
+  if (verificationStatus === 'UNVERIFIED_NONEXISTENT') {
+    baseDomainScore = Math.max(baseDomainScore, 15);
+    baseTlsScore = Math.max(baseTlsScore, 10);
+  } else if (verificationStatus === 'UNVERIFIED_UNREACHABLE') {
+    baseDomainScore = Math.max(baseDomainScore, 12);
+    baseTlsScore = Math.max(baseTlsScore, 8);
+  } else if (verificationStatus === 'LIMITED_CONTENT') {
+    basePageScore = Math.max(basePageScore, 10);
+  }
+
+  // Plain HTTP cannot be 0 risk
+  if (!tlsAnalysis.httpsEnabled) {
+    baseTlsScore = Math.max(baseTlsScore, 10);
+  }
 
   const weights = {
     urlAnomalies: { score: Math.min(20, Math.max(0, urlAnomaliesPoints)), max: 20, description: 'Address syntax, character sets, subdomains, and obfuscation heuristics' },
-    domainDns: { score: Math.min(15, Math.max(0, domainDnsPoints)), max: 15, description: 'Domain existence, IP address type, and DNS record presence' },
-    httpsTls: { score: Math.min(10, Math.max(0, httpsTlsPoints)), max: 10, description: 'SSL/TLS encryption, certificate validity, and hostname verification' },
+    domainDns: { score: Math.min(15, Math.max(0, baseDomainScore)), max: 15, description: 'Domain existence, IP address type, and DNS record presence' },
+    httpsTls: { score: Math.min(10, Math.max(0, baseTlsScore)), max: 10, description: 'SSL/TLS encryption, certificate validity, and hostname verification' },
     redirects: { score: Math.min(10, Math.max(0, redirectPoints)), max: 10, description: 'Redirect hops, cross-domain jumps, and HTTPS downgrade detection' },
     securityHeaders: { score: Math.min(10, Math.max(0, securityHeadersPoints)), max: 10, description: 'Defense-in-depth HTTP headers (HSTS, CSP, X-Frame-Options)' },
     threatIntelligence: { score: Math.min(25, Math.max(0, threatIntelPoints)), max: 25, description: 'Known threat database flags and security vendor reputation' },
     phishingBrand: { score: Math.min(20, Math.max(0, phishingBrandPoints)), max: 20, description: 'Brand impersonation, typosquatting, and deceptive subdomain stacking' },
-    pageContent: { score: Math.min(20, Math.max(0, pageContentPoints)), max: 20, description: 'Sensitive input requests (passwords, cards, PII) and form targets' },
+    pageContent: { score: Math.min(20, Math.max(0, basePageScore)), max: 20, description: 'Sensitive input requests (passwords, cards, PII) and form targets' },
   };
 
   const rawSum =
@@ -1443,18 +1465,29 @@ function computeTransparentRiskScore(params: {
     weights.phishingBrand.score +
     weights.pageContent.score;
 
-  const normalizedScore = Math.min(100, Math.max(0, Math.round(rawSum)));
+  let normalizedScore = Math.min(100, Math.max(0, Math.round(rawSum)));
+
+  // Ensure minimum floor based on verification status
+  if (verificationStatus === 'UNVERIFIED_NONEXISTENT') {
+    normalizedScore = Math.max(52, normalizedScore);
+  } else if (verificationStatus === 'UNVERIFIED_UNREACHABLE') {
+    normalizedScore = Math.max(40, normalizedScore);
+  } else if (!tlsAnalysis.httpsEnabled) {
+    normalizedScore = Math.max(28, normalizedScore);
+  } else if (verificationStatus === 'LIMITED_CONTENT') {
+    normalizedScore = Math.max(25, normalizedScore);
+  }
 
   let riskCategory: 'LOW RISK' | 'MODERATE RISK' | 'HIGH RISK' | 'CRITICAL RISK';
   let riskLevel: 'Low Risk' | 'Medium Risk' | 'High Risk';
 
-  if (normalizedScore >= 75) {
+  if (normalizedScore >= 75 || reputationReport.status === 'KNOWN MALICIOUS') {
     riskCategory = 'CRITICAL RISK';
     riskLevel = 'High Risk';
-  } else if (normalizedScore >= 50) {
+  } else if (normalizedScore >= 50 || verificationStatus === 'UNVERIFIED_NONEXISTENT' || brandResult.isImpersonatingBrand) {
     riskCategory = 'HIGH RISK';
     riskLevel = 'High Risk';
-  } else if (normalizedScore >= 25) {
+  } else if (normalizedScore >= 25 || !tlsAnalysis.httpsEnabled || verificationStatus === 'UNVERIFIED_UNREACHABLE' || verificationStatus === 'LIMITED_CONTENT') {
     riskCategory = 'MODERATE RISK';
     riskLevel = 'Medium Risk';
   } else {
@@ -1472,7 +1505,13 @@ function computeTransparentRiskScore(params: {
   let confidenceLevel: 'LOW' | 'MEDIUM' | 'HIGH' = 'MEDIUM';
   let confidenceReason = '';
 
-  if (confidenceSourcesCount >= 4) {
+  if (verificationStatus === 'UNVERIFIED_NONEXISTENT') {
+    confidenceLevel = 'LOW';
+    confidenceReason = 'Domain does not resolve through authoritative DNS (NXDOMAIN); cannot confirm existence of live website.';
+  } else if (verificationStatus === 'UNVERIFIED_UNREACHABLE') {
+    confidenceLevel = 'LOW';
+    confidenceReason = 'Target server is unreachable over the network; live security properties cannot be verified.';
+  } else if (confidenceSourcesCount >= 4) {
     confidenceLevel = 'HIGH';
     confidenceReason = 'High confidence: live DNS, HTTP server response, TLS certificate, and webpage content were all directly verified.';
   } else if (confidenceSourcesCount >= 2) {
@@ -1630,7 +1669,25 @@ app.post('/api/scan-url', rateLimitMiddleware, async (req, res) => {
       }
     }
 
-    // 7. Deterministic URL Heuristic Points & Indicators
+    // 7. Verification Status Determination
+    let verificationStatus: 'VERIFIED_LIVE' | 'UNVERIFIED_NONEXISTENT' | 'UNVERIFIED_UNREACHABLE' | 'LIMITED_CONTENT' | 'ACCESS_RESTRICTED' | 'INVALID_SYNTAX' = 'VERIFIED_LIVE';
+    let verificationStatusText = 'Verified Live Web Resource';
+
+    if (dnsAnalysis.domainExistenceStatus === 'nonexistent') {
+      verificationStatus = 'UNVERIFIED_NONEXISTENT';
+      verificationStatusText = 'Unverified: Domain Does Not Exist (NXDOMAIN)';
+    } else if (dnsAnalysis.isPrivateOrInternalIp) {
+      verificationStatus = 'ACCESS_RESTRICTED';
+      verificationStatusText = 'Restricted: Private/Internal IP Address (RFC 1918)';
+    } else if (!reachability.isReachable) {
+      verificationStatus = 'UNVERIFIED_UNREACHABLE';
+      verificationStatusText = `Unverified: Server Unreachable (${reachability.classification})`;
+    } else if (webpageContent.hasLimitedContent) {
+      verificationStatus = 'LIMITED_CONTENT';
+      verificationStatusText = 'Verified Domain with Limited/Placeholder Content';
+    }
+
+    // 8. Deterministic URL Heuristic Points & Indicators
     const indicators: any[] = [];
     const scoreBreakdown: any[] = [];
     let urlAnomaliesPoints = 0;
@@ -1765,22 +1822,22 @@ app.post('/api/scan-url', rateLimitMiddleware, async (req, res) => {
       });
     }
 
-    // Non-HTTPS
+    // Non-HTTPS / TLS evaluation
     if (!isHttps) {
-      httpsTlsPoints += 8;
+      httpsTlsPoints += 12;
       indicators.push({
         id: 'unencrypted-http',
-        name: 'Unencrypted Plain HTTP Connection',
+        name: 'Unencrypted Plain HTTP Connection (Port 80)',
         category: 'protocol',
         severity: 'medium',
         status: 'warning',
-        description: 'Communication is not protected by TLS encryption (HTTP port 80).',
-        whyItMatters: 'Any credentials, cookies, or data transmitted over unencrypted HTTP can be intercepted on public Wi-Fi.',
-        impactPoints: 8,
+        description: 'Communication is not protected by TLS encryption (HTTP port 80). Data transmitted over this connection is unencrypted.',
+        whyItMatters: 'Any credentials, cookies, or data transmitted over unencrypted HTTP can be intercepted on local or public Wi-Fi networks.',
+        impactPoints: 12,
         iconType: 'alert',
       });
     } else if (tlsAnalysis.certValid === false) {
-      httpsTlsPoints += 7;
+      httpsTlsPoints += 10;
       indicators.push({
         id: 'tls-cert-invalid',
         name: 'TLS Certificate Validation Issue',
@@ -1789,24 +1846,24 @@ app.post('/api/scan-url', rateLimitMiddleware, async (req, res) => {
         status: 'risk',
         description: tlsAnalysis.tlsNote || 'TLS certificate could not be verified or has expired/mismatched identity.',
         whyItMatters: 'Invalid certificates mean the encryption cannot be verified as belonging to the legitimate domain.',
-        impactPoints: 7,
+        impactPoints: 10,
         iconType: 'danger',
       });
     }
 
     // DNS existence
     if (dnsAnalysis.domainExistenceStatus === 'nonexistent') {
-      domainDnsPoints += 10;
+      domainDnsPoints += 15;
       indicators.push({
         id: 'dns-nxdomain',
-        name: 'Nonexistent Domain (DNS NXDOMAIN)',
+        name: 'Domain Does Not Exist (DNS NXDOMAIN)',
         category: 'host',
-        severity: 'medium',
-        status: 'warning',
-        description: 'Domain does not resolve to active DNS records. The website appears nonexistent or defunct.',
-        whyItMatters: 'Nonexistent domains cannot serve web traffic. This alone does not prove malicious intent.',
-        impactPoints: 10,
-        iconType: 'alert',
+        severity: 'critical',
+        status: 'risk',
+        description: 'Domain does not resolve to active DNS records. A real, reachable website could not be confirmed.',
+        whyItMatters: 'Safety cannot be confirmed for nonexistent, unresolvable, or defunct domains.',
+        impactPoints: 15,
+        iconType: 'danger',
       });
     }
 
@@ -1841,24 +1898,40 @@ app.post('/api/scan-url', rateLimitMiddleware, async (req, res) => {
     }
 
     // Security Headers
-    if (securityHeaders.missingCount >= 4 && reachability.isReachable) {
-      securityHeadersPoints += 4;
+    if (securityHeaders.missingCount >= 3 && reachability.isReachable) {
+      securityHeadersPoints += Math.min(10, securityHeaders.missingCount * 2);
       indicators.push({
         id: 'missing-security-headers',
-        name: 'Missing Multiple Defensive Security Headers',
+        name: `Missing Defensive Security Headers (${securityHeaders.missingCount} absent)`,
         category: 'general',
         severity: 'low',
         status: 'warning',
         description: `${securityHeaders.missingCount} recommended defensive headers are absent (e.g. HSTS, CSP, X-Frame-Options).`,
-        whyItMatters: 'Security headers provide defense-in-depth against clickjacking and script injection.',
-        impactPoints: 4,
+        whyItMatters: 'Security headers provide defense-in-depth against clickjacking, MIME-sniffing, and script injection.',
+        impactPoints: Math.min(8, securityHeaders.missingCount * 2),
+        iconType: 'alert',
+      });
+    }
+
+    // Limited Content Indicator
+    if (webpageContent.hasLimitedContent && reachability.isReachable) {
+      pageContentPoints += 8;
+      indicators.push({
+        id: 'limited-content',
+        name: 'Limited / Minimal Webpage Content',
+        category: 'path',
+        severity: 'low',
+        status: 'warning',
+        description: 'Very little readable text or interactive markup was found on the analyzed public page.',
+        whyItMatters: 'Safety cannot be fully confirmed from placeholder, empty, or minimal pages.',
+        impactPoints: 8,
         iconType: 'alert',
       });
     }
 
     // Brand Impersonation
     if (brandResult.isImpersonatingBrand) {
-      phishingBrandPoints += 18;
+      phishingBrandPoints += 20;
       indicators.push({
         id: 'brand-impersonation',
         name: 'Potential Brand Impersonation',
@@ -1867,23 +1940,23 @@ app.post('/api/scan-url', rateLimitMiddleware, async (req, res) => {
         status: 'risk',
         description: brandResult.impersonationEvidence || `Domain appears to mimic ${brandResult.suspectedBrand}.`,
         whyItMatters: 'Brand impersonation is the core technique of credential theft and smishing scams.',
-        impactPoints: 18,
+        impactPoints: 20,
         iconType: 'danger',
       });
     }
 
     // Page Content & Forms
     if (webpageContent.hasLoginForm) {
-      pageContentPoints += (isHttps ? 4 : 14);
+      pageContentPoints += (isHttps ? 4 : 16);
       indicators.push({
         id: 'login-form',
-        name: isHttps ? 'Login / Authentication Form Present' : 'Insecure Login Form over HTTP',
+        name: isHttps ? 'Login / Authentication Form Present' : 'Insecure Login Form over Plain HTTP',
         category: 'path',
         severity: isHttps ? 'low' : 'critical',
         status: isHttps ? 'warning' : 'risk',
-        description: isHttps ? 'Page contains credential fields (username/password).' : 'Login form transmits credentials in cleartext.',
+        description: isHttps ? 'Page contains credential fields (username/password).' : 'Login form transmits credentials in cleartext over unencrypted HTTP.',
         whyItMatters: 'Always verify the domain belongs to the intended service before entering passwords.',
-        impactPoints: isHttps ? 4 : 14,
+        impactPoints: isHttps ? 4 : 16,
         iconType: isHttps ? 'alert' : 'danger',
       });
     }
@@ -1909,7 +1982,7 @@ app.post('/api/scan-url', rateLimitMiddleware, async (req, res) => {
       threatIntelPoints += 12;
     }
 
-    // 8. Gemini Semantic Analysis
+    // 9. Gemini Semantic Analysis
     const heuristicSummary = indicators.map(i => i.name).join('; ') || 'Standard web indicators';
     const aiAnalysis = await performGeminiSemanticAnalysis({
       url: normalizedUrl,
@@ -1920,7 +1993,7 @@ app.post('/api/scan-url', rateLimitMiddleware, async (req, res) => {
       heuristicSummary,
     });
 
-    // 9. Transparent Scoring Calculation
+    // 10. Transparent Scoring Calculation
     const scoring = computeTransparentRiskScore({
       urlAnomaliesPoints,
       domainDnsPoints,
@@ -1936,6 +2009,7 @@ app.post('/api/scan-url', rateLimitMiddleware, async (req, res) => {
       reputationReport,
       brandResult,
       webpageContent,
+      verificationStatus,
     });
 
     // Dedicated Phishing Indicators List
@@ -1981,12 +2055,25 @@ app.post('/api/scan-url', rateLimitMiddleware, async (req, res) => {
       securityObservations.push(`Brand Impersonation Alert: Suspected spoofing of ${brandResult.suspectedBrand}.`);
     }
 
-    // Synthesized Executive Summary
-    const executiveSummary = scoring.normalizedScore >= 50
-      ? `High-risk indicators identified for ${hostname}. ${aiAnalysis.explanation || 'Significant anomalous markers or potential brand deception detected.'}`
-      : scoring.normalizedScore >= 25
-      ? `Moderate risk observations noted for ${hostname}. While no confirmed active attacks were found, caution is advised due to configuration or structural markers.`
-      : `No significant threats detected for ${hostname} based on available DNS, TLS, and content analysis. Note: Safe-looking does not guarantee absolute safety.`;
+    // Synthesized Executive Summary following "Absence of evidence is not evidence of safety"
+    let executiveSummary = '';
+    if (verificationStatus === 'UNVERIFIED_NONEXISTENT') {
+      executiveSummary = `🔴 WEBSITE COULD NOT BE VERIFIED: The submitted domain (${hostname}) does not currently resolve through authoritative DNS (NXDOMAIN). No active, reachable website could be confirmed, so there is insufficient evidence to classify this destination as safe.`;
+    } else if (verificationStatus === 'UNVERIFIED_UNREACHABLE') {
+      executiveSummary = `⚠️ UNREACHABLE DESTINATION: The target server for ${hostname} could not be reached over the network (${reachability.explanation}). Live security properties and content cannot be confirmed at this time.`;
+    } else if (brandResult.isImpersonatingBrand) {
+      executiveSummary = `🚨 HIGH RISK / DECEPTION ALERT: Elevated risk indicators identified for ${hostname}. ${brandResult.impersonationEvidence || 'Potential brand deception detected.'}`;
+    } else if (!isHttps) {
+      executiveSummary = `⚠️ UNENCRYPTED TRANSPORT: The website is reachable, but communicates over unencrypted plain HTTP (port 80). Data transmitted between your browser and the remote server is not encrypted, exposing session tokens and credentials to interception.`;
+    } else if (webpageContent.hasLimitedContent) {
+      executiveSummary = `⚠️ LIMITED WEBPAGE CONTENT: The domain is active and reachable over HTTPS, but only minimal text or placeholder content was available for analysis. While no active threats were detected, safety cannot be guaranteed from placeholder pages.`;
+    } else if (scoring.normalizedScore >= 50) {
+      executiveSummary = `High-risk indicators identified for ${hostname}. ${aiAnalysis.explanation || 'Significant anomalous markers or potential deception detected.'}`;
+    } else if (scoring.normalizedScore >= 25) {
+      executiveSummary = `Moderate risk observations noted for ${hostname}. While no confirmed active attacks were found, caution is advised due to configuration or structural markers (${securityHeaders.missingCount} defensive headers missing).`;
+    } else {
+      executiveSummary = `No significant threats detected for ${hostname} based on available DNS, TLS, and content analysis. Note: Safe-looking does not guarantee absolute safety.`;
+    }
 
     const finalAssessment = {
       rawInput: trimmedInput,
@@ -2022,13 +2109,16 @@ app.post('/api/scan-url', rateLimitMiddleware, async (req, res) => {
       urlLength: normalizedUrl.length,
       hostnameLength: hostname.length,
 
-      // Risk Scores & Classification
+      // Verification & Risk Scores
+      verificationStatus,
+      verificationStatusText,
       structuralScore: Math.round((urlAnomaliesPoints / 20) * 100),
       riskScore: scoring.normalizedScore,
       riskLevel: scoring.riskLevel,
       riskCategory: scoring.riskCategory,
       confidenceLevel: scoring.confidenceLevel,
       confidenceReason: scoring.confidenceReason,
+      transparentWeights: scoring.weights,
 
       // Reports
       reputationReport,
@@ -2137,7 +2227,6 @@ app.post('/api/scan-url', rateLimitMiddleware, async (req, res) => {
         overallRisk: 'TRANSPARENT 8-PILLAR RISK ENGINE',
       },
       phishingIndicatorsList,
-      transparentWeights: scoring.weights,
       verifiedFacts,
       securityObservations,
       executiveSummary,
