@@ -1,7 +1,7 @@
 export interface DetectorTestCase {
   id: string;
   name: string;
-  category: 'normal' | 'protocol' | 'ip' | 'length' | 'subdomains' | 'punycode' | 'path' | 'query' | 'userinfo' | 'malformed' | 'port' | 'tld';
+  category: 'normal' | 'protocol' | 'ip' | 'length' | 'subdomains' | 'punycode' | 'path' | 'query' | 'userinfo' | 'malformed' | 'port' | 'tld' | 'host';
   url: string;
   expectedRiskLevel: 'Low Risk' | 'Medium Risk' | 'High Risk';
   description: string;
@@ -89,6 +89,33 @@ export const DETECTOR_TEST_CASES: DetectorTestCase[] = [
     expectedRiskLevel: 'High Risk',
     description: 'RFC 3986 userinfo trick where browser treats "google.com" as username and actually navigates to "phishing-trap-server.top".',
     keySignalsToDetect: ['Embedded @ symbol (+45 pts)', 'High-risk .top TLD (+20 pts)', 'Auth keyword (+10 pts)']
+  },
+  {
+    id: 'tc-nonexistent-domain',
+    name: 'Nonexistent Domain (NXDOMAIN)',
+    category: 'host',
+    url: 'https://this-domain-definitely-does-not-exist-123987xyz.org/',
+    expectedRiskLevel: 'Medium Risk',
+    description: 'A syntactically valid domain that fails DNS resolution because it has never been registered or has no active DNS records.',
+    keySignalsToDetect: ['DNS resolution failure', 'Domain nonexistent (NXDOMAIN)', 'Educational distinction from confirmed malware']
+  },
+  {
+    id: 'tc-brand-typosquatting',
+    name: 'Brand Impersonation / Typosquatting',
+    category: 'host',
+    url: 'https://paypa1-security-verification.xyz/login',
+    expectedRiskLevel: 'High Risk',
+    description: 'Deceptive domain spoofing PayPal via number-one character substitution (paypa1) on a disposable .xyz TLD with login keywords.',
+    keySignalsToDetect: ['Brand impersonation (PayPal)', 'Character substitution (paypa1)', 'High-risk .xyz TLD', 'Login keyword']
+  },
+  {
+    id: 'tc-neverssl-http',
+    name: 'Live Plain HTTP Website (No TLS)',
+    category: 'protocol',
+    url: 'http://neverssl.com/',
+    expectedRiskLevel: 'Low Risk',
+    description: 'Real live public website operating intentionally over plain HTTP (port 80) without SSL/TLS encryption.',
+    keySignalsToDetect: ['Live HTTP reachability', 'Unencrypted transport warning', 'Clean domain structure']
   },
   {
     id: 'tc-unusual-port',

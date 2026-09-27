@@ -296,6 +296,194 @@ export interface UrlScoreBreakdownItem {
   reason: string;
 }
 
+export interface DnsAnalysisResult {
+  domain: string;
+  dnsStatus: 'resolved' | 'failed' | 'not_applicable';
+  domainExistenceStatus: 'exists' | 'nonexistent' | 'unknown';
+  resolvedIps: string[];
+  ipv4: string[];
+  ipv6: string[];
+  mxRecords?: string[];
+  txtRecords?: string[];
+  dnsFailureReason?: string;
+  isPrivateOrInternalIp?: boolean;
+}
+
+export interface HttpReachabilityResult {
+  isReachable: boolean;
+  httpStatusCode?: number;
+  httpStatusText?: string;
+  responseTimeMs?: number;
+  contentType?: string;
+  serverHeader?: string;
+  finalUrl?: string;
+  classification:
+    | 'reachable'
+    | 'redirected'
+    | 'access_denied'
+    | 'not_found'
+    | 'server_error'
+    | 'dns_failure'
+    | 'timeout'
+    | 'connection_refused'
+    | 'blocked_internal_ip'
+    | 'unreachable';
+  explanation: string;
+}
+
+export interface TlsAnalysisResult {
+  httpsEnabled: boolean;
+  httpsAvailable: boolean;
+  certValid?: boolean;
+  certIssuer?: string;
+  certSubject?: string;
+  certValidFrom?: string;
+  certValidTo?: string;
+  certDaysRemaining?: number;
+  certHostnameMatch?: boolean;
+  tlsVersion?: string;
+  tlsError?: string;
+  tlsNote: string;
+}
+
+export interface RedirectHop {
+  from: string;
+  to: string;
+  statusCode: number;
+  statusText?: string;
+}
+
+export interface RedirectAnalysisResult {
+  redirectCount: number;
+  redirectChain: RedirectHop[];
+  hasExcessiveRedirects: boolean;
+  hasCrossDomainRedirect: boolean;
+  hasDowngradeRedirect: boolean;
+  hasSuspiciousRedirect: boolean;
+  finalDestination: string;
+  redirectSummary: string;
+}
+
+export interface SecurityHeaderItem {
+  name: string;
+  value?: string;
+  status: 'present' | 'missing' | 'unknown';
+  importance: 'high' | 'medium' | 'low';
+  description: string;
+}
+
+export interface SecurityHeadersResult {
+  headers: SecurityHeaderItem[];
+  score: number; // 0 - 10
+  missingCount: number;
+  presentCount: number;
+  evaluationNote: string;
+}
+
+export interface BrandImpersonationResult {
+  isImpersonatingBrand: boolean;
+  suspectedBrand?: string;
+  impersonationEvidence?: string;
+  targetDomainLegitimate?: string;
+  technique?: 'typosquatting' | 'homoglyph' | 'subdomain_trick' | 'prefix_suffix' | 'keyword_combining';
+  severity?: 'low' | 'medium' | 'high' | 'critical';
+}
+
+export interface DetectedFormItem {
+  action?: string;
+  method?: string;
+  inputs: string[];
+  hasPasswordInput: boolean;
+  hasEmailInput: boolean;
+  hasPaymentInput: boolean;
+  isSuspiciousAction: boolean;
+}
+
+export interface WebpageContentResult {
+  isContentFetched: boolean;
+  fetchError?: string;
+  pageTitle?: string;
+  metaDescription?: string;
+  headings: string[];
+  textExcerpt?: string;
+  formsDetected: DetectedFormItem[];
+  hasLoginForm: boolean;
+  hasPasswordFields: boolean;
+  hasPaymentFields: boolean;
+  hasPiiFields: boolean;
+  sensitiveFieldsDetected: string[];
+  externalScriptsCount?: number;
+}
+
+export interface PhishingIndicatorItem {
+  indicator: string;
+  evidence: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+}
+
+export interface AiSemanticAnalysisResult {
+  websiteType: string;
+  websitePurpose: string;
+  primaryContentSummary: string;
+  potentiallySensitiveActions: string[];
+  phishingIndicators: PhishingIndicatorItem[];
+  contentIndicators: string[];
+  brandImpersonation: boolean;
+  confidence: 'Low' | 'Medium' | 'High';
+  explanation: string;
+  recommendedActions: string[];
+  modelUsed?: string;
+  isAiGenerated: boolean;
+}
+
+export interface WebsiteClassificationResult {
+  websiteType: string;
+  websitePurpose: string;
+  confidence: 'High' | 'Medium' | 'Low';
+  evidence: string[];
+}
+
+export interface DetectedFunctionalElements {
+  hasLogin: boolean;
+  hasRegistration: boolean;
+  hasSearch: boolean;
+  hasContactForm: boolean;
+  hasFileUpload: boolean;
+  hasDownload: boolean;
+  hasShoppingCart: boolean;
+  hasCheckout: boolean;
+  hasPayment: boolean;
+  hasSubscription: boolean;
+  hasAccountCreation: boolean;
+  detectedList: string[];
+}
+
+export interface WebsitePublicInformation {
+  pageTitle?: string;
+  metaDescription?: string;
+  mainHeading?: string;
+  headings: string[];
+  language?: string;
+  contentType?: string;
+  mainTopics?: string[];
+  publicContactInfo?: string[];
+  callsToAction?: string[];
+  textExcerpt?: string;
+  functionalElements: DetectedFunctionalElements;
+  sensitiveRequests: string[];
+}
+
+export interface TransparentRiskWeightsBreakdown {
+  urlAnomalies: { score: number; max: number; description: string };
+  domainDns: { score: number; max: number; description: string };
+  httpsTls: { score: number; max: number; description: string };
+  redirects: { score: number; max: number; description: string };
+  securityHeaders: { score: number; max: number; description: string };
+  threatIntelligence: { score: number; max: number; description: string };
+  phishingBrand: { score: number; max: number; description: string };
+  pageContent: { score: number; max: number; description: string };
+}
+
 export interface UrlScanAssessment {
   rawInput: string;
   normalizedUrl: string;
@@ -339,6 +527,9 @@ export interface UrlScanAssessment {
   structuralScore: number; // 0 - 100
   riskScore: number; // Final Combined 0 - 100
   riskLevel: 'Low Risk' | 'Medium Risk' | 'High Risk';
+  riskCategory?: 'LOW RISK' | 'MODERATE RISK' | 'HIGH RISK' | 'CRITICAL RISK';
+  confidenceLevel?: 'LOW' | 'MEDIUM' | 'HIGH';
+  confidenceReason?: string;
   reputationReport: ThreatIntelligenceReport;
   checksPerformed: CheckPerformedItem[];
   scoreBreakdown: UrlScoreBreakdownItem[];
@@ -349,6 +540,23 @@ export interface UrlScanAssessment {
   redirectNotice: string;
   errorMessage?: string;
   scannedAt?: string;
+
+  // Real Multi-Layer Analysis Extensions
+  dnsAnalysis?: DnsAnalysisResult;
+  reachability?: HttpReachabilityResult;
+  tlsAnalysis?: TlsAnalysisResult;
+  redirectAnalysis?: RedirectAnalysisResult;
+  securityHeaders?: SecurityHeadersResult;
+  brandImpersonation?: BrandImpersonationResult;
+  webpageContent?: WebpageContentResult;
+  aiAnalysis?: AiSemanticAnalysisResult;
+  phishingIndicatorsList?: PhishingIndicatorItem[];
+  transparentWeights?: TransparentRiskWeightsBreakdown;
+  websiteClassification?: WebsiteClassificationResult;
+  publicInformation?: WebsitePublicInformation;
+  verifiedFacts?: string[];
+  securityObservations?: string[];
+  executiveSummary?: string;
 }
 
 export interface ExtractedUrlInfo {

@@ -722,6 +722,8 @@ export async function analyzeUrlSafety(inputUrl: string): Promise<UrlScanAssessm
       structuralScore: 0,
       riskScore: 0,
       riskLevel: 'Low Risk',
+      riskCategory: 'LOW RISK',
+      confidenceLevel: 'LOW',
       reputationReport: emptyReport,
       checksPerformed: [
         { id: 'syntax', name: 'URL Syntax & Normalization', status: 'failed', detail: 'No input provided.' },
@@ -737,7 +739,30 @@ export async function analyzeUrlSafety(inputUrl: string): Promise<UrlScanAssessm
     };
   }
 
-  // Step 1: Run deterministic local structural analysis
+  // Step 1: Execute real server-side multi-layer security inspection
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 9500);
+
+    const res = await fetch('/api/scan-url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: trimmed }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (res.ok) {
+      const liveAssessment: UrlScanAssessment = await res.json();
+      if (liveAssessment && liveAssessment.normalizedUrl) {
+        return liveAssessment;
+      }
+    }
+  } catch (err) {
+    console.warn('[Detector] Server-side scan unavailable, falling back to local engine:', err);
+  }
+
+  // Step 2: Run deterministic local structural analysis fallback
   const struct = analyzeUrlStructure(trimmed);
 
   // If invalid URL, return immediate assessment
