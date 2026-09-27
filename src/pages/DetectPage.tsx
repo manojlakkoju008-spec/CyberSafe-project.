@@ -34,7 +34,17 @@ import {
   Clock,
   ExternalLink,
   CheckSquare,
-  XCircle
+  XCircle,
+  Compass,
+  FileCode,
+  Tag,
+  Eye,
+  Sliders,
+  Database,
+  ArrowUpRight,
+  Radio,
+  FileSearch,
+  CheckCheck
 } from 'lucide-react';
 import { UrlScanAssessment } from '../types';
 import { analyzeUrlSafety } from '../utils/detectorEngine';
@@ -59,17 +69,17 @@ interface TestRunResult {
 }
 
 const SCAN_STEPS = [
-  'Stage 1: What URL did the user provide? (Validating URL syntax & structure)...',
-  'Stage 2: Does the domain/website exist? (Resolving live DNS records)...',
-  'Stage 3: What type of website is it? (Classifying category & apparent purpose)...',
-  'Stage 4: What public information does it contain? (Extracting content & forms)...',
-  'Stage 5: Is the website actually reachable? (Testing network response & status)...',
-  'Stage 6: Where does the URL redirect? (Tracing redirect chain & hops)...',
-  'Stage 7: What technical security characteristics does it have? (TLS & headers)...',
-  'Stage 8: Are there suspicious/phishing indicators? (Heuristics & impersonation)...',
-  'Stage 9: What does threat intelligence say? (Querying reputation feeds)...',
-  'Stage 10: What is the overall risk? (Transparent 0–100 scoring & confidence)...',
-  'Stage 11: Explain everything to the user (Synthesized findings & guidance)...',
+  'Step 1: Inspecting & parsing target URL structure...',
+  'Step 2: Resolving live DNS records and domain existence...',
+  'Step 3: Connecting to target server and verifying reachability...',
+  'Step 4: Fetching public webpage markup and extracting content...',
+  'Step 5: Classifying website category, apparent purpose, and metadata...',
+  'Step 6: Inspecting interactive forms, links, and functional elements...',
+  'Step 7: Validating TLS / SSL certificates and defensive security headers...',
+  'Step 8: Scanning for brand impersonation, lookalike domains, and heuristics...',
+  'Step 9: Querying threat intelligence reputation databases...',
+  'Step 10: Generating evidence-grounded Gemini AI semantic assessment...',
+  'Step 11: Computing transparent weighted risk score & guidance...',
 ];
 
 export const DetectPage: React.FC<DetectPageProps> = ({ onNavigateToReport, initialUrl }) => {
@@ -81,27 +91,22 @@ export const DetectPage: React.FC<DetectPageProps> = ({ onNavigateToReport, init
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [scanStepIndex, setScanStepIndex] = useState(0);
   const [assessment, setAssessment] = useState<UrlScanAssessment | null>(null);
-  const [activeIndicatorFilter, setActiveIndicatorFilter] = useState<string>('all');
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [copiedSummary, setCopiedSummary] = useState(false);
 
-  // Collapsible section states for the 11 ordered stages
-  const [openStages, setOpenStages] = useState<Record<number, boolean>>({
-    1: true,
-    2: true,
-    3: true,
-    4: true,
-    5: true,
-    6: true,
-    7: true,
-    8: true,
-    9: true,
-    10: true,
-    11: true,
+  // Collapsible section states for sections 5 through 11 (technical and detailed sections)
+  const [openSections, setOpenSections] = useState<Record<number, boolean>>({
+    5: true,  // Technical Analysis
+    6: true,  // Security Analysis
+    7: true,  // Phishing & Impersonation
+    8: true,  // Threat Intelligence
+    9: true,  // AI Security Assessment
+    10: true, // Risk Score & Breakdown
+    11: true, // Recommended Action
   });
 
-  const toggleStage = (stageNum: number) => {
-    setOpenStages(prev => ({ ...prev, [stageNum]: !prev[stageNum] }));
+  const toggleSection = (sectionNum: number) => {
+    setOpenSections(prev => ({ ...prev, [sectionNum]: !prev[sectionNum] }));
   };
 
   // Scanning progress step animation
@@ -114,7 +119,7 @@ export const DetectPage: React.FC<DetectPageProps> = ({ onNavigateToReport, init
           if (prev < SCAN_STEPS.length - 1) return prev + 1;
           return prev;
         });
-      }, 700);
+      }, 650);
     }
     return () => clearInterval(interval);
   }, [isAnalyzing]);
@@ -146,7 +151,7 @@ export const DetectPage: React.FC<DetectPageProps> = ({ onNavigateToReport, init
       const result = await analyzeUrlSafety(target);
       setAssessment(result);
     } catch {
-      // Graceful fallback on unexpected error
+      // Fallback
     } finally {
       setIsAnalyzing(false);
     }
@@ -182,22 +187,41 @@ export const DetectPage: React.FC<DetectPageProps> = ({ onNavigateToReport, init
     if (!assessment) return;
     const text = `CYBERSAFE SECURITY ANALYSIS REPORT
 Target Address: ${assessment.normalizedUrl}
+Overall Risk: ${assessment.riskCategory || assessment.riskLevel} (${assessment.riskScore}/100) — Confidence: ${assessment.confidenceLevel || 'High'}
 
-STAGE 1 — WHAT URL DID THE USER PROVIDE?: ${assessment.isValid ? 'Valid RFC URL' : 'Invalid Syntax'} (${assessment.protocol} ${assessment.hostname})
-STAGE 2 — DOES THE DOMAIN / WEBSITE EXIST?: ${assessment.dnsAnalysis?.domainExistenceStatus === 'exists' ? `Domain Exists (${assessment.dnsAnalysis.resolvedIps?.join(', ') || 'DNS Resolved'})` : 'Domain Nonexistent / Unresolved (NXDOMAIN)'}
-STAGE 3 — WHAT TYPE OF WEBSITE IS IT?: ${assessment.websiteClassification?.websiteType || assessment.aiAnalysis?.websiteType || 'General Web Resource'} - ${assessment.websiteClassification?.websitePurpose || assessment.aiAnalysis?.websitePurpose || 'Evaluated'}
-STAGE 4 — WHAT PUBLIC INFORMATION / CONTENT DOES IT CONTAIN?: ${assessment.publicInformation?.pageTitle || 'Public Content Evaluated'} (${assessment.publicInformation?.functionalElements?.detectedList?.join(', ') || 'Standard Elements'})
-STAGE 5 — IS THE WEBSITE ACTUALLY REACHABLE?: ${assessment.reachability?.isReachable ? `Reachable (HTTP ${assessment.reachability.httpStatusCode || 200}, ${assessment.reachability.responseTimeMs || 0}ms)` : assessment.reachability?.classification}
-STAGE 6 — WHERE DOES THE URL REDIRECT?: ${assessment.redirectAnalysis?.redirectCount || 0} hop(s)${assessment.redirectAnalysis?.hasDowngradeRedirect ? ' [HTTPS Downgrade Alert]' : ''}
-STAGE 7 — WHAT TECHNICAL SECURITY CHARACTERISTICS DOES IT HAVE?: ${assessment.isHttps ? `HTTPS Active (${assessment.tlsAnalysis?.certIssuer || 'TLS Certificate Valid'})` : 'Unencrypted Plain HTTP'} | ${assessment.securityHeaders?.presentCount || 0}/${assessment.securityHeaders?.headers?.length || 6} Defensive Headers Present
-STAGE 8 — ARE THERE SUSPICIOUS / PHISHING INDICATORS?: ${assessment.brandImpersonation?.isImpersonatingBrand ? `Spoofing ${assessment.brandImpersonation.suspectedBrand} | ` : ''}${assessment.indicators?.length || 0} indicator(s) noted
-STAGE 9 — WHAT DOES THREAT INTELLIGENCE SAY?: ${assessment.reputationReport?.status || 'No Known Threat Found'} (${assessment.reputationReport?.provider || 'Threat Feeds'})
-STAGE 10 — WHAT IS THE OVERALL RISK?: ${assessment.riskCategory || assessment.riskLevel} (${assessment.riskScore}/100) - Confidence: ${assessment.confidenceLevel || 'Medium'}
-STAGE 11 — EXPLAIN EVERYTHING TO THE USER:
-- Finding Summary: ${assessment.executiveSummary || assessment.explanation}
-- Recommended Action: ${assessment.recommendations?.[0] || 'Verify domain spelling carefully.'}
+1. WEBSITE INTELLIGENCE
+- Category: ${assessment.websiteClassification?.websiteType || assessment.aiAnalysis?.websiteType || 'General Web Resource'}
+- Purpose: ${assessment.websiteClassification?.websitePurpose || assessment.aiAnalysis?.websitePurpose || 'Evaluated based on retrieved page content'}
+- Page Title: ${assessment.publicInformation?.pageTitle || assessment.webpageContent?.pageTitle || 'N/A'}
+- Domain: ${assessment.registeredDomain || assessment.hostname}
+- Final URL: ${assessment.reachability?.finalUrl || assessment.normalizedUrl}
 
-Notice: CyberSafe is a college community first-level threat assessment tool. Zero detections and HTTPS encryption do not guarantee complete immunity.`;
+2. OBSERVED EVIDENCE
+${assessment.websiteClassification?.evidence?.map(e => `• ${e}`).join('\n') || '• Public webpage markup and server responses analyzed'}
+
+3. DETECTED FUNCTIONALITY & DATA
+- Interactive Features: ${assessment.publicInformation?.functionalElements?.detectedList?.join(', ') || 'None specifically detected'}
+- Sensitive Inputs: ${assessment.publicInformation?.sensitiveRequests?.join(', ') || 'No obvious sensitive-data input detected on public page'}
+
+4. BASIC METADATA
+- Protocol: ${assessment.protocol.toUpperCase()} (${assessment.isHttps ? 'HTTPS' : 'HTTP'})
+- HTTP Status: ${assessment.reachability?.httpStatusCode || 'N/A'}
+- Response Time: ${assessment.reachability?.responseTimeMs ? `${assessment.reachability.responseTimeMs} ms` : 'N/A'}
+- Content-Type: ${assessment.reachability?.contentType || 'N/A'}
+
+5. TECHNICAL & SECURITY CHARACTERISTICS
+- Domain DNS: ${assessment.dnsAnalysis?.domainExistenceStatus === 'exists' ? `Live DNS (${assessment.dnsAnalysis.resolvedIps?.join(', ') || 'Resolved'})` : 'Nonexistent / NXDOMAIN'}
+- TLS Certificate: ${assessment.isHttps ? (assessment.tlsAnalysis?.certIssuer || 'Valid TLS Certificate') : 'Unencrypted HTTP'}
+- Security Headers: ${assessment.securityHeaders?.presentCount || 0}/${assessment.securityHeaders?.headers?.length || 6} present
+- Brand Spoofing Check: ${assessment.brandImpersonation?.isImpersonatingBrand ? `Alert: Mimics ${assessment.brandImpersonation.suspectedBrand}` : 'No lookalike brand spoofing detected'}
+- Threat Intelligence: ${assessment.reputationReport?.status || 'No Known Threats Listed'} (${assessment.reputationReport?.provider || 'External Feeds'})
+
+6. SYNTHESIZED ASSESSMENT & RECOMMENDATIONS
+- Executive Summary: ${assessment.executiveSummary || assessment.explanation}
+- Recommended Action: ${assessment.recommendations?.[0] || 'Remain cautious and verify domain before entering credentials.'}
+
+Notice: CyberSafe provides first-level threat analysis grounded in actual retrieved technical evidence. HTTPS encryption and absence of threat database listings do not guarantee complete immunity.`;
+
     navigator.clipboard.writeText(text);
     setCopiedSummary(true);
     setTimeout(() => setCopiedSummary(false), 2000);
@@ -249,13 +273,6 @@ Notice: CyberSafe is a college community first-level threat assessment tool. Zer
     setIsTestingQa(false);
   };
 
-  // Filter indicators
-  const filteredIndicators = useMemo(() => {
-    if (!assessment) return [];
-    if (activeIndicatorFilter === 'all') return assessment.indicators;
-    return assessment.indicators.filter((ind) => ind.category === activeIndicatorFilter);
-  }, [assessment, activeIndicatorFilter]);
-
   // Color mappings
   const getRiskColor = (score: number) => {
     if (score >= 75) return { bg: 'bg-rose-50', border: 'border-rose-300', text: 'text-rose-900', badge: 'bg-rose-600 text-white', bar: 'bg-rose-600' };
@@ -263,6 +280,135 @@ Notice: CyberSafe is a college community first-level threat assessment tool. Zer
     if (score >= 25) return { bg: 'bg-amber-50', border: 'border-amber-300', text: 'text-amber-900', badge: 'bg-amber-600 text-white', bar: 'bg-amber-500' };
     return { bg: 'bg-emerald-50', border: 'border-emerald-300', text: 'text-emerald-900', badge: 'bg-emerald-600 text-white', bar: 'bg-emerald-600' };
   };
+
+  // Derive dynamic observed evidence items
+  const observedEvidenceList = useMemo(() => {
+    if (!assessment) return [];
+    const items: Array<{ title: string; source: string; state: 'positive' | 'observation' | 'concern'; iconType: string }> = [];
+
+    // Title & Structure
+    if (assessment.publicInformation?.pageTitle || assessment.webpageContent?.pageTitle) {
+      items.push({
+        title: `Page title observed: "${assessment.publicInformation?.pageTitle || assessment.webpageContent?.pageTitle}"`,
+        source: 'HTML <title> tag extraction',
+        state: 'positive',
+        iconType: 'check'
+      });
+    }
+
+    if (assessment.publicInformation?.mainHeading || assessment.publicInformation?.headings?.[0]) {
+      items.push({
+        title: `Main heading observed: "${assessment.publicInformation?.mainHeading || assessment.publicInformation?.headings?.[0]}"`,
+        source: 'HTML <h1> / <h2> structure',
+        state: 'positive',
+        iconType: 'check'
+      });
+    }
+
+    if (assessment.publicInformation?.metaDescription || assessment.webpageContent?.metaDescription) {
+      items.push({
+        title: `Meta description present (${(assessment.publicInformation?.metaDescription || assessment.webpageContent?.metaDescription || '').length} chars)`,
+        source: 'HTML <meta name="description"> tag',
+        state: 'positive',
+        iconType: 'check'
+      });
+    }
+
+    // Links
+    if (assessment.publicInformation?.linksInfo && assessment.publicInformation.linksInfo.totalLinksCount > 0) {
+      items.push({
+        title: `${assessment.publicInformation.linksInfo.totalLinksCount} hyperlinked elements detected (${assessment.publicInformation.linksInfo.internalLinksCount} internal, ${assessment.publicInformation.linksInfo.externalLinksCount} external navigation links)`,
+        source: 'HTML anchor <a> tags inspection',
+        state: 'positive',
+        iconType: 'check'
+      });
+    }
+
+    // Functional elements
+    const fe = assessment.publicInformation?.functionalElements;
+    if (fe?.hasSearch) {
+      items.push({
+        title: 'Search input and query submission interface detected',
+        source: 'Form markup & input attributes',
+        state: 'positive',
+        iconType: 'check'
+      });
+    }
+
+    if (fe?.hasLogin) {
+      items.push({
+        title: 'User login / credential entry interface identified',
+        source: 'HTML form & username/email fields',
+        state: assessment.isHttps ? 'observation' : 'concern',
+        iconType: assessment.isHttps ? 'info' : 'alert'
+      });
+    }
+
+    if (fe?.hasRegistration) {
+      items.push({
+        title: 'Account registration / sign-up flow identified',
+        source: 'Visible page links and registration form elements',
+        state: 'observation',
+        iconType: 'info'
+      });
+    }
+
+    if (fe?.hasShoppingCart || fe?.hasCheckout || fe?.hasPayment) {
+      items.push({
+        title: 'E-commerce shopping cart / checkout or payment interface observed',
+        source: 'Visible checkout keywords and cart elements',
+        state: 'observation',
+        iconType: 'info'
+      });
+    }
+
+    if (fe?.hasDownload) {
+      items.push({
+        title: 'Software, installer, or document download triggers detected',
+        source: 'Direct download anchor tags and buttons',
+        state: 'observation',
+        iconType: 'info'
+      });
+    }
+
+    // Sensitive fields
+    if (assessment.webpageContent?.hasLoginForm) {
+      items.push({
+        title: 'Password input field (<input type="password">) detected in page markup',
+        source: 'HTML password input tag',
+        state: assessment.isHttps ? 'observation' : 'concern',
+        iconType: assessment.isHttps ? 'info' : 'alert'
+      });
+    }
+
+    if (assessment.webpageContent?.hasPaymentFields) {
+      items.push({
+        title: 'Financial / card payment input fields detected on page',
+        source: 'HTML card/billing input analysis',
+        state: assessment.brandImpersonation?.isImpersonatingBrand ? 'concern' : 'observation',
+        iconType: assessment.brandImpersonation?.isImpersonatingBrand ? 'alert' : 'info'
+      });
+    }
+
+    // Reachability & DNS
+    if (assessment.reachability?.isReachable) {
+      items.push({
+        title: `Target web server online and responded with HTTP ${assessment.reachability.httpStatusCode} (${assessment.reachability.responseTimeMs}ms latency)`,
+        source: 'Live HTTP network probe',
+        state: 'positive',
+        iconType: 'check'
+      });
+    } else if (assessment.dnsAnalysis?.domainExistenceStatus === 'nonexistent') {
+      items.push({
+        title: 'Target domain does not exist in authoritative DNS (NXDOMAIN)',
+        source: 'DNS authoritative name server lookup',
+        state: 'concern',
+        iconType: 'alert'
+      });
+    }
+
+    return items;
+  }, [assessment]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
@@ -278,7 +424,7 @@ Notice: CyberSafe is a college community first-level threat assessment tool. Zer
         </h1>
 
         <p className="text-base sm:text-lg text-slate-600 leading-relaxed font-medium">
-          Comprehensive, deterministic technical analysis combining DNS verification, reachability, SSL/TLS certificates, redirect tracing, security headers, webpage content extraction, and Gemini AI semantic analysis.
+          Understand what a website actually is, what content was observed on the live webpage, and review deterministic technical security characteristics.
         </p>
 
         <div className="flex items-center gap-3 pt-1 flex-wrap">
@@ -345,7 +491,7 @@ Notice: CyberSafe is a college community first-level threat assessment tool. Zer
                     type="text"
                     value={urlInput}
                     onChange={(e) => setUrlInput(e.target.value)}
-                    placeholder="Enter URL to analyze, e.g. https://cybercrime.gov.in"
+                    placeholder="Enter URL to analyze, e.g. https://github.com or https://cybercrime.gov.in"
                     className="w-full pl-11 pr-12 py-3.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#1261A0] focus:bg-white font-mono transition-all"
                     autoComplete="off"
                     spellCheck="false"
@@ -371,7 +517,7 @@ Notice: CyberSafe is a college community first-level threat assessment tool. Zer
                     icon={<Search className="w-4 h-4" />}
                     className="w-full sm:w-auto shrink-0 font-bold bg-[#1261A0] hover:bg-[#0B1F33]"
                   >
-                    {isAnalyzing ? 'Scanning...' : 'Analyze URL'}
+                    {isAnalyzing ? 'Analyzing...' : 'Analyze URL'}
                   </Button>
                   {urlInput && (
                     <Button
@@ -393,7 +539,7 @@ Notice: CyberSafe is a college community first-level threat assessment tool. Zer
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                   <Terminal className="w-3.5 h-3.5 text-[#1261A0]" />
-                  <span>Demonstration Test Scenarios:</span>
+                  <span>Quick Test Scenarios:</span>
                 </span>
                 <button
                   type="button"
@@ -443,7 +589,7 @@ Notice: CyberSafe is a college community first-level threat assessment tool. Zer
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm font-bold text-blue-400">
                   <Activity className="w-4 h-4 animate-spin" />
-                  <span>Executing Multi-Layer Security Inspection</span>
+                  <span>Inspecting Target Webpage & Infrastructure</span>
                 </div>
                 <span className="text-xs font-mono text-slate-400">
                   Step {scanStepIndex + 1} of {SCAN_STEPS.length}
@@ -484,7 +630,7 @@ Notice: CyberSafe is a college community first-level threat assessment tool. Zer
               rows={4}
               value={messageInput}
               onChange={(e) => handleParseMessage(e.target.value)}
-              placeholder="Paste suspicious message here, e.g.:&#10;Your bank account is suspended. Verify KYC immediately at: https://paypa1-security-verification.xyz/login"
+              placeholder="Paste suspicious message here, e.g.:&#10;Your account is suspended. Verify immediately at: https://paypa1-security-verification.xyz/login"
               className="w-full p-4 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-hidden focus:ring-2 focus:ring-[#1261A0] focus:bg-white font-sans transition-all leading-relaxed"
             />
 
@@ -591,7 +737,7 @@ Notice: CyberSafe is a college community first-level threat assessment tool. Zer
                   <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
                     <td className="p-2.5">
                       <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" /> PASS
+                        <CheckCircle2 className="w-3 text-emerald-600" /> PASS
                       </span>
                     </td>
                     <td className="p-2.5 font-sans font-medium text-slate-900">
@@ -624,10 +770,13 @@ Notice: CyberSafe is a college community first-level threat assessment tool. Zer
         </Card>
       )}
 
-      {/* FULL RESULTS DASHBOARD - 14-STAGE COMPREHENSIVE CYBERSAFE EVALUATION */}
+      {/* FULL RESULTS DASHBOARD - REORGANIZED INFORMATION HIERARCHY */}
       {assessment && !isAnalyzing && (
         <div className="space-y-8 animate-in fade-in duration-200">
-          {/* Main Assessment Header Card */}
+          
+          {/* ======================================================== */}
+          {/* TOP: OVERALL ANALYSIS SUMMARY                            */}
+          {/* ======================================================== */}
           {(() => {
             const colors = getRiskColor(assessment.riskScore);
             return (
@@ -636,11 +785,11 @@ Notice: CyberSafe is a college community first-level threat assessment tool. Zer
                   <div className="space-y-3.5 flex-1">
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <span className="text-xs font-extrabold uppercase tracking-wider text-[#0B1F33]">
-                        CyberSafe Security Analysis
+                        CYBERSAFE DETECT
                       </span>
 
                       <span className={`px-2.5 py-0.5 rounded-md text-xs font-bold ${colors.badge}`}>
-                        {assessment.riskCategory || (assessment.riskScore >= 75 ? 'CRITICAL RISK' : assessment.riskScore >= 50 ? 'HIGH RISK' : assessment.riskScore >= 25 ? 'MODERATE RISK' : 'LOW RISK')}
+                        OVERALL RISK: {assessment.riskCategory || (assessment.riskScore >= 75 ? 'CRITICAL' : assessment.riskScore >= 50 ? 'HIGH' : assessment.riskScore >= 25 ? 'MODERATE' : 'LOW')}
                       </span>
 
                       <span className="text-xs font-bold px-2.5 py-0.5 rounded-md bg-white border border-slate-200 text-slate-900 shadow-2xs">
@@ -648,8 +797,15 @@ Notice: CyberSafe is a college community first-level threat assessment tool. Zer
                       </span>
 
                       <span className="text-xs font-bold px-2.5 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 shadow-2xs">
-                        Confidence: {assessment.confidenceLevel || 'MEDIUM'}
+                        Confidence: {(assessment.confidenceLevel || 'HIGH').toUpperCase()}
                       </span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-xs text-slate-500 font-mono">Analyzed URL:</div>
+                      <div className="text-sm sm:text-base font-bold text-slate-900 font-mono break-all bg-white/70 px-3 py-1.5 rounded-lg border border-slate-200/80 inline-block">
+                        {assessment.normalizedUrl}
+                      </div>
                     </div>
 
                     <h2 className="text-xl sm:text-2xl font-extrabold text-[#0B1F33] leading-snug">
@@ -666,12 +822,6 @@ Notice: CyberSafe is a college community first-level threat assessment tool. Zer
                       {assessment.executiveSummary || assessment.explanation}
                     </p>
 
-                    {assessment.confidenceReason && (
-                      <p className="text-xs text-slate-500 font-mono">
-                        Evidence basis: {assessment.confidenceReason}
-                      </p>
-                    )}
-
                     {/* Coordinates Strip */}
                     <div className="flex flex-wrap items-center gap-2 pt-2 text-xs font-mono text-slate-700">
                       <div className="bg-white/90 px-3 py-1.5 rounded-lg border border-slate-200 flex items-center gap-1.5 shadow-2xs">
@@ -680,7 +830,7 @@ Notice: CyberSafe is a college community first-level threat assessment tool. Zer
                         ) : (
                           <Unlock className="w-3.5 h-3.5 text-rose-600" />
                         )}
-                        <span>{assessment.protocol}</span>
+                        <span>{assessment.protocol.toUpperCase()}</span>
                       </div>
 
                       <div className="bg-white/90 px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs">
@@ -731,7 +881,7 @@ Notice: CyberSafe is a college community first-level threat assessment tool. Zer
                         icon={copiedSummary ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                         className="flex-1 text-xs font-bold"
                       >
-                        {copiedSummary ? 'Copied' : 'Copy 14-Stage Report'}
+                        {copiedSummary ? 'Copied' : 'Copy Analysis Report'}
                       </Button>
                       <Button
                         variant="ghost"
@@ -749,499 +899,488 @@ Notice: CyberSafe is a college community first-level threat assessment tool. Zer
             );
           })()}
 
-          {/* 11 ORDERED STAGES SECTION */}
-          <div className="space-y-6">
+          {/* ======================================================== */}
+          {/* SECTION 1: WEBSITE INTELLIGENCE (WHAT IS THIS WEBSITE?)    */}
+          {/* ======================================================== */}
+          <div className="space-y-4">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3 flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <Layers className="w-5 h-5 text-[#1261A0]" />
+                <Compass className="w-5 h-5 text-[#1261A0]" />
                 <h3 className="text-xl font-bold text-[#0B1F33]">
-                  11-Stage Ordered Technical Security Assessment
+                  1. Website Intelligence
                 </h3>
               </div>
               <span className="text-xs text-slate-500 font-medium">
-                Structured in exact verification order from identity to final user action
+                Answers &quot;What is this website and what is its apparent purpose?&quot;
               </span>
             </div>
 
-            {/* STAGE 1: WHAT URL DID THE USER PROVIDE? */}
-            <Card className="p-6 bg-white border-slate-200 shadow-2xs space-y-4">
-              <button
-                type="button"
-                onClick={() => toggleStage(1)}
-                className="w-full flex items-center justify-between text-left cursor-pointer"
-              >
-                <div className="flex items-center gap-3 font-bold text-sm text-slate-900">
-                  <span className="px-2 py-0.5 rounded bg-blue-100 text-[#1261A0] text-xs font-mono font-bold">
-                    STAGE 1 OF 11
-                  </span>
-                  <LinkIcon className="w-4 h-4 text-[#1261A0]" />
-                  <span>Stage 1 — What URL Did the User Provide?</span>
-                  <span className="px-2 py-0.5 rounded text-xs font-mono font-bold bg-emerald-50 text-emerald-700">
-                    ✓ VALID RFC URL
-                  </span>
-                </div>
-                {openStages[1] ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-              </button>
-
-              {openStages[1] && (
-                <div className="pt-3 border-t border-slate-100 space-y-3 text-xs">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono">
-                    <div className="p-3 bg-slate-50 rounded-lg">
-                      <span className="text-slate-500 text-[11px] block">Original Input URL:</span>
-                      <span className="font-bold text-slate-900 break-all">{assessment.rawInput}</span>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-lg">
-                      <span className="text-slate-500 text-[11px] block">Normalized URL (RFC 3986):</span>
-                      <span className="font-bold text-slate-900 break-all">{assessment.normalizedUrl}</span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 font-mono text-[11px]">
-                    <div className="p-2.5 bg-slate-50 rounded-lg">
-                      <span className="text-slate-400 block text-[10px]">Protocol:</span>
-                      <span className="font-bold text-slate-800">{assessment.protocol}</span>
-                    </div>
-                    <div className="p-2.5 bg-slate-50 rounded-lg">
-                      <span className="text-slate-400 block text-[10px]">Hostname:</span>
-                      <span className="font-bold text-slate-800 truncate block">{assessment.hostname}</span>
-                    </div>
-                    <div className="p-2.5 bg-slate-50 rounded-lg">
-                      <span className="text-slate-400 block text-[10px]">Registrable Domain:</span>
-                      <span className="font-bold text-slate-800">{assessment.registeredDomain || assessment.hostname}</span>
-                    </div>
-                    <div className="p-2.5 bg-slate-50 rounded-lg">
-                      <span className="text-slate-400 block text-[10px]">Subdomain(s):</span>
-                      <span className="font-bold text-slate-800">{assessment.subdomains.length > 0 ? assessment.subdomains.join('.') : 'None'}</span>
-                    </div>
-                    <div className="p-2.5 bg-slate-50 rounded-lg">
-                      <span className="text-slate-400 block text-[10px]">Port:</span>
-                      <span className="font-bold text-slate-800">{assessment.port || (assessment.isHttps ? '443 (default)' : '80 (default)')}</span>
-                    </div>
-                    <div className="p-2.5 bg-slate-50 rounded-lg">
-                      <span className="text-slate-400 block text-[10px]">Path & Query:</span>
-                      <span className="font-bold text-slate-800 truncate block">{assessment.pathname}{assessment.search || ''}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </Card>
-
-            {/* STAGE 2: DOES THE WEBSITE / DOMAIN EXIST? */}
-            <Card className="p-6 bg-white border-slate-200 shadow-2xs space-y-4">
-              <button
-                type="button"
-                onClick={() => toggleStage(2)}
-                className="w-full flex items-center justify-between text-left cursor-pointer"
-              >
-                <div className="flex items-center gap-3 font-bold text-sm text-slate-900">
-                  <span className="px-2 py-0.5 rounded bg-blue-100 text-[#1261A0] text-xs font-mono font-bold">
-                    STAGE 2 OF 11
-                  </span>
-                  <Server className="w-4 h-4 text-[#1261A0]" />
-                  <span>Stage 2 — Does the Domain / Website Exist?</span>
-                  <span className={`px-2 py-0.5 rounded text-xs font-mono font-bold ${
-                    assessment.dnsAnalysis?.domainExistenceStatus === 'exists' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-                  }`}>
-                    {assessment.dnsAnalysis?.domainExistenceStatus === 'exists' ? '✓ DOMAIN EXISTS' : '✗ NONEXISTENT (NXDOMAIN)'}
-                  </span>
-                </div>
-                {openStages[2] ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-              </button>
-
-              {openStages[2] && (
-                <div className="pt-3 border-t border-slate-100 space-y-3.5 text-xs">
-                  {assessment.dnsAnalysis?.domainExistenceStatus === 'nonexistent' ? (
-                    <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 space-y-1">
-                      <div className="font-bold flex items-center gap-1.5">
-                        <AlertTriangle className="w-4 h-4 text-amber-600" />
-                        <span>Domain Resolution Status: Nonexistent Domain (NXDOMAIN)</span>
-                      </div>
-                      <p className="text-xs text-slate-700 leading-relaxed">
-                        The domain could not be resolved at the time of analysis. This may indicate a nonexistent domain, DNS failure, expired configuration, or temporary availability issue. This alone does not prove malicious intent.
-                      </p>
-                      <p className="text-xs font-bold text-amber-800 pt-1">
-                        Webpage content analysis unavailable because the domain could not be resolved.
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-slate-700 leading-relaxed font-medium">
-                      DNS query successfully resolved live network addresses for <strong>{assessment.hostname}</strong>.
-                    </p>
-                  )}
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 font-mono text-[11px]">
-                    <div className="p-3 bg-slate-50 rounded-lg">
-                      <span className="text-slate-500 block">Domain Host:</span>
-                      <span className="font-bold text-slate-900 break-all">{assessment.dnsAnalysis?.domain || assessment.hostname}</span>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-lg">
-                      <span className="text-slate-500 block">DNS Lookup Result:</span>
-                      <span className="font-bold text-slate-900">{(assessment.dnsAnalysis?.dnsStatus || 'RESOLVED').toUpperCase()}</span>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-lg">
-                      <span className="text-slate-500 block">IPv4 Address (A):</span>
-                      <span className="font-bold text-slate-900">
-                        {assessment.dnsAnalysis?.ipv4 && assessment.dnsAnalysis.ipv4.length > 0 ? assessment.dnsAnalysis.ipv4.join(', ') : 'None'}
-                      </span>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-lg">
-                      <span className="text-slate-500 block">IPv6 Address (AAAA):</span>
-                      <span className="font-bold text-slate-900">
-                        {assessment.dnsAnalysis?.ipv6 && assessment.dnsAnalysis.ipv6.length > 0 ? assessment.dnsAnalysis.ipv6.join(', ') : 'None'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {assessment.dnsAnalysis?.mxRecords && assessment.dnsAnalysis.mxRecords.length > 0 && (
-                    <div className="p-3 bg-slate-50 rounded-lg font-mono text-[11px]">
-                      <span className="text-slate-500 block font-bold mb-1">Mail Exchange (MX) Records:</span>
-                      <span className="text-slate-800">{assessment.dnsAnalysis.mxRecords.join(', ')}</span>
-                    </div>
-                  )}
-
-                  {/* 5-Way Technical Distinction Guide */}
-                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 space-y-1.5">
-                    <span className="text-[11px] font-bold text-slate-900 uppercase tracking-wider block">
-                      CyberSafe 5-Way Resolution Distinction Model
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Category Card */}
+              <Card className="lg:col-span-5 p-6 bg-gradient-to-br from-white to-blue-50/40 border-blue-200 shadow-2xs space-y-4 flex flex-col justify-between">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5 text-[#1261A0]" />
+                      <span>Website Category</span>
                     </span>
-                    <ul className="space-y-1 text-[11px] text-slate-600">
-                      <li>• <strong>1. Invalid URL:</strong> Address syntax violates RFC specifications before lookup.</li>
-                      <li>• <strong>2. Valid URL, DNS Failure:</strong> Hostname has no active DNS A/AAAA records (NXDOMAIN).</li>
-                      <li>• <strong>3. Domain Resolves, Host Offline:</strong> DNS succeeded but target server port refused or dropped packets.</li>
-                      <li>• <strong>4. Domain Exists, Server Responds:</strong> Server accepted TCP connection and returned HTTP response.</li>
-                      <li>• <strong>5. Domain Exists, Path Error (404/500):</strong> Server is healthy but specific file or path requested was missing.</li>
-                    </ul>
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-900 border border-blue-200">
+                      Confidence: {assessment.websiteClassification?.confidence || assessment.confidenceLevel || 'High'}
+                    </span>
                   </div>
-                </div>
-              )}
-            </Card>
 
-            {/* STAGE 3: WHAT TYPE OF WEBSITE IS IT? */}
-            <Card className="p-6 bg-white border-slate-200 shadow-2xs space-y-4">
-              <button
-                type="button"
-                onClick={() => toggleStage(3)}
-                className="w-full flex items-center justify-between text-left cursor-pointer"
-              >
-                <div className="flex items-center gap-3 font-bold text-sm text-slate-900">
-                  <span className="px-2 py-0.5 rounded bg-blue-100 text-[#1261A0] text-xs font-mono font-bold">
-                    STAGE 3 OF 11
-                  </span>
-                  <Cpu className="w-4 h-4 text-[#1261A0]" />
-                  <span>Stage 3 — What Type of Website Is It?</span>
-                  <span className="px-2 py-0.5 rounded text-xs font-mono font-bold bg-blue-50 text-blue-900">
+                  <div className="text-2xl font-extrabold text-[#0B1F33] tracking-tight">
                     {assessment.websiteClassification?.websiteType || assessment.aiAnalysis?.websiteType || 'General Web Resource'}
-                  </span>
-                </div>
-                {openStages[3] ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-              </button>
-
-              {openStages[3] && (
-                <div className="pt-3 border-t border-slate-100 space-y-3.5 text-xs">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="p-3.5 bg-slate-50 rounded-xl space-y-1">
-                      <span className="text-slate-500 font-bold block text-[11px]">Classified Website Category:</span>
-                      <span className="text-sm font-extrabold text-[#0B1F33]">
-                        {assessment.websiteClassification?.websiteType || assessment.aiAnalysis?.websiteType || 'General Web Resource'}
-                      </span>
-                    </div>
-
-                    <div className="p-3.5 bg-slate-50 rounded-xl space-y-1 md:col-span-2">
-                      <span className="text-slate-500 font-bold block text-[11px]">Apparent Website Purpose:</span>
-                      <p className="text-xs text-slate-800 font-medium leading-relaxed">
-                        {assessment.websiteClassification?.websitePurpose || assessment.aiAnalysis?.websitePurpose || 'General online resource.'}
-                      </p>
-                    </div>
                   </div>
 
-                  <div className="p-3.5 bg-slate-50 rounded-xl space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-800 text-[11px]">Classification Evidence Observed:</span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700">
-                        Confidence: {assessment.websiteClassification?.confidence || assessment.aiAnalysis?.confidence || 'Medium'}
-                      </span>
-                    </div>
-                    <ul className="space-y-1 text-slate-600">
-                      {(assessment.websiteClassification?.evidence || ['Public domain and webpage metadata evaluated.']).map((ev, idx) => (
-                        <li key={idx} className="flex items-start gap-2">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 mt-0.5 shrink-0" />
-                          <span>{ev}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              )}
-            </Card>
-
-            {/* STAGE 4: WHAT PUBLIC INFORMATION DOES THE WEBSITE CONTAIN? */}
-            <Card className="p-6 bg-white border-slate-200 shadow-2xs space-y-4">
-              <button
-                type="button"
-                onClick={() => toggleStage(4)}
-                className="w-full flex items-center justify-between text-left cursor-pointer"
-              >
-                <div className="flex items-center gap-3 font-bold text-sm text-slate-900">
-                  <span className="px-2 py-0.5 rounded bg-blue-100 text-[#1261A0] text-xs font-mono font-bold">
-                    STAGE 4 OF 11
-                  </span>
-                  <FileText className="w-4 h-4 text-[#1261A0]" />
-                  <span>Stage 4 — What Public Information / Content Does It Contain?</span>
-                  <span className="px-2 py-0.5 rounded text-xs font-mono font-bold bg-slate-100 text-slate-700">
-                    {assessment.webpageContent?.isContentFetched ? 'CONTENT RETRIEVED' : 'CONTENT UNAVAILABLE'}
-                  </span>
-                </div>
-                {openStages[4] ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-              </button>
-
-              {openStages[4] && (
-                <div className="pt-3 border-t border-slate-100 space-y-4 text-xs">
-                  {/* Basic Metadata */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="p-3 bg-slate-50 rounded-lg">
-                      <span className="text-slate-500 block text-[11px]">Page Title:</span>
-                      <span className="font-bold text-slate-900">{assessment.publicInformation?.pageTitle || assessment.webpageContent?.pageTitle || 'None detected'}</span>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-lg">
-                      <span className="text-slate-500 block text-[11px]">Meta Description:</span>
-                      <span className="text-slate-700 line-clamp-2">{assessment.publicInformation?.metaDescription || assessment.webpageContent?.metaDescription || 'None provided'}</span>
-                    </div>
-                  </div>
-
-                  {/* Functional Elements Checklist */}
-                  <div className="space-y-2">
-                    <span className="font-bold text-slate-800 text-[11px] block">Functional Elements Detected:</span>
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        { label: 'Login / Authentication', active: assessment.publicInformation?.functionalElements?.hasLogin || assessment.webpageContent?.hasLoginForm },
-                        { label: 'Registration / Sign-up', active: assessment.publicInformation?.functionalElements?.hasRegistration },
-                        { label: 'Search Functionality', active: assessment.publicInformation?.functionalElements?.hasSearch },
-                        { label: 'Contact / Inquiry Form', active: assessment.publicInformation?.functionalElements?.hasContactForm },
-                        { label: 'File Upload', active: assessment.publicInformation?.functionalElements?.hasFileUpload },
-                        { label: 'Software Download', active: assessment.publicInformation?.functionalElements?.hasDownload },
-                        { label: 'Shopping Cart', active: assessment.publicInformation?.functionalElements?.hasShoppingCart },
-                        { label: 'Checkout Flow', active: assessment.publicInformation?.functionalElements?.hasCheckout },
-                        { label: 'Payment Processing', active: assessment.publicInformation?.functionalElements?.hasPayment || assessment.webpageContent?.hasPaymentFields },
-                        { label: 'Newsletter / Subscription', active: assessment.publicInformation?.functionalElements?.hasSubscription },
-                        { label: 'Account Creation', active: assessment.publicInformation?.functionalElements?.hasAccountCreation },
-                      ].map((item, idx) => (
-                        <span
-                          key={idx}
-                          className={`px-2.5 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 ${
-                            item.active ? 'bg-blue-100 text-blue-900 font-bold border border-blue-200' : 'bg-slate-100 text-slate-400'
-                          }`}
-                        >
-                          {item.active ? <CheckSquare className="w-3.5 h-3.5 text-blue-700" /> : <span className="w-3.5 h-3.5 text-slate-300">○</span>}
-                          <span>{item.label}</span>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Sensitive Information Requests */}
-                  {assessment.webpageContent?.sensitiveFieldsDetected && assessment.webpageContent.sensitiveFieldsDetected.length > 0 && (
-                    <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl space-y-1.5">
-                      <div className="font-bold text-amber-900 flex items-center gap-1.5">
-                        <AlertTriangle className="w-4 h-4 text-amber-600" />
-                        <span>Sensitive Information Requested on Page:</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 pt-1">
-                        {assessment.webpageContent.sensitiveFieldsDetected.map((field, i) => (
-                          <span key={i} className="px-2.5 py-1 rounded bg-amber-100 text-amber-900 font-bold text-xs">
-                            ⚠ {field}
-                          </span>
-                        ))}
-                      </div>
-                      <p className="text-[11px] text-amber-800 pt-1">
-                        Note: Legitimate services request credentials and payment details, but always confirm the address bar domain matches the official service.
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-slate-500 text-[11px]">
-                    <strong>Privacy & Safe Scrape Guarantee:</strong> CyberSafe only evaluates publicly accessible webpage markup. Credentials are never collected, submitted, or stored.
-                  </div>
-                </div>
-              )}
-            </Card>
-
-            {/* STAGE 5: WEBSITE REACHABILITY & AVAILABILITY */}
-            <Card className="p-6 bg-white border-slate-200 shadow-2xs space-y-4">
-              <button
-                type="button"
-                onClick={() => toggleStage(5)}
-                className="w-full flex items-center justify-between text-left cursor-pointer"
-              >
-                <div className="flex items-center gap-3 font-bold text-sm text-slate-900">
-                  <span className="px-2 py-0.5 rounded bg-blue-100 text-[#1261A0] text-xs font-mono font-bold">
-                    STAGE 5 OF 14
-                  </span>
-                  <Globe className="w-4 h-4 text-[#1261A0]" />
-                  <span>Website Reachability & Network Response</span>
-                  <span className={`px-2 py-0.5 rounded text-xs font-mono font-bold ${
-                    assessment.reachability?.isReachable ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
-                  }`}>
-                    {(assessment.reachability?.classification || 'UNREACHABLE').toUpperCase()}
-                  </span>
-                </div>
-                {openStages[5] ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-              </button>
-
-              {openStages[5] && (
-                <div className="pt-3 border-t border-slate-100 space-y-3.5 text-xs">
-                  <p className="text-slate-700 leading-relaxed font-medium">
-                    {assessment.reachability?.explanation}
+                  <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                    {assessment.websiteClassification?.evidence && assessment.websiteClassification.evidence.length > 0
+                      ? assessment.websiteClassification.evidence[0]
+                      : 'Classified dynamically from extracted page title, headings, and public markup.'}
                   </p>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-[11px]">
-                    <div className="p-3 bg-slate-50 rounded-lg">
-                      <span className="text-slate-500 block">HTTP Status:</span>
-                      <span className="font-bold text-slate-900">{assessment.reachability?.httpStatusCode ? `HTTP ${assessment.reachability.httpStatusCode}` : 'N/A'}</span>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-lg">
-                      <span className="text-slate-500 block">Response Latency:</span>
-                      <span className="font-bold text-slate-900">{assessment.reachability?.responseTimeMs ? `${assessment.reachability.responseTimeMs} ms` : 'N/A'}</span>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-lg">
-                      <span className="text-slate-500 block">Content-Type:</span>
-                      <span className="font-bold text-slate-900 truncate block">{assessment.reachability?.contentType || 'N/A'}</span>
-                    </div>
-                    <div className="p-3 bg-slate-50 rounded-lg">
-                      <span className="text-slate-500 block">Server Header:</span>
-                      <span className="font-bold text-slate-900 truncate block">{assessment.reachability?.serverHeader || 'Not exposed'}</span>
-                    </div>
-                  </div>
-
-                  <div className="p-3 rounded-lg bg-blue-50/70 border border-blue-200 text-blue-900 text-[11px]">
-                    <strong>Educational Distinction:</strong> HTTP 404 indicates that the server responded but the specific page was not found; it does NOT mean the domain does not exist.
-                  </div>
                 </div>
-              )}
-            </Card>
 
-            {/* STAGE 6: REDIRECT ANALYSIS */}
-            <Card className="p-6 bg-white border-slate-200 shadow-2xs space-y-4">
-              <button
-                type="button"
-                onClick={() => toggleStage(6)}
-                className="w-full flex items-center justify-between text-left cursor-pointer"
-              >
-                <div className="flex items-center gap-3 font-bold text-sm text-slate-900">
-                  <span className="px-2 py-0.5 rounded bg-blue-100 text-[#1261A0] text-xs font-mono font-bold">
-                    STAGE 6 OF 14
-                  </span>
-                  <ArrowRight className="w-4 h-4 text-[#1261A0]" />
-                  <span>Redirect Chain Tracking ({assessment.redirectAnalysis?.redirectCount || 0} hops)</span>
-                  {assessment.redirectAnalysis?.hasDowngradeRedirect && (
-                    <span className="px-2 py-0.5 rounded text-xs font-mono font-bold bg-rose-100 text-rose-800">
-                      HTTPS DOWNGRADE ⚠
+                <div className="pt-3 border-t border-blue-100 flex items-center justify-between text-[11px] text-slate-500">
+                  <span>Source: Public webpage content + Gemini semantic analysis</span>
+                  <span className="font-semibold text-[#1261A0]">Verified Evidence</span>
+                </div>
+              </Card>
+
+              {/* Purpose Card */}
+              <Card className="lg:col-span-7 p-6 bg-white border-slate-200 shadow-2xs space-y-4 flex flex-col justify-between">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                      <HelpCircle className="w-3.5 h-3.5 text-[#1261A0]" />
+                      <span>What Is This Website For?</span>
                     </span>
-                  )}
-                </div>
-                {openStages[6] ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-              </button>
+                    <span className="text-[11px] font-medium text-slate-500">
+                      Natural-Language Analysis
+                    </span>
+                  </div>
 
-              {openStages[6] && (
-                <div className="pt-3 border-t border-slate-100 space-y-3.5 text-xs">
-                  <p className="text-slate-600 font-medium">
-                    {assessment.redirectAnalysis?.redirectSummary || 'No redirects detected. Direct response received.'}
-                  </p>
+                  <h4 className="text-base font-bold text-slate-900 leading-snug">
+                    Apparent Purpose & Core Activity
+                  </h4>
 
-                  {assessment.redirectAnalysis?.redirectChain && assessment.redirectAnalysis.redirectChain.length > 0 ? (
-                    <div className="space-y-2">
-                      {assessment.redirectAnalysis.redirectChain.map((hop, idx) => (
-                        <div key={idx} className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between gap-3 font-mono text-[11px]">
-                          <div className="truncate flex-1">
-                            <span className="text-slate-500 font-bold mr-2">Hop #{idx + 1}</span>
-                            <span className="text-slate-700">{hop.from}</span>
-                            <ArrowRight className="w-3 h-3 inline mx-2 text-slate-400" />
-                            <span className="font-bold text-slate-900">{hop.to}</span>
-                          </div>
-                          <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-900 font-bold shrink-0">
-                            HTTP {hop.statusCode}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-3 bg-slate-50 rounded-lg text-slate-500 font-mono text-[11px]">
-                      Destination: {assessment.normalizedUrl} (Zero intermediate hops)
-                    </div>
-                  )}
-
-                  <p className="text-[11px] text-slate-500">
-                    Redirect tracking prevents credential phishers from bouncing victims through tracking links to hide the final hostile destination.
+                  <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
+                    {assessment.websiteClassification?.websitePurpose || assessment.aiAnalysis?.websitePurpose || 'This website provides public web services and resources as evaluated from its live responses and document structure.'}
                   </p>
                 </div>
-              )}
-            </Card>
 
-            {/* STAGE 7: TECHNICAL SECURITY CONFIGURATION */}
-            <Card className="p-6 bg-white border-slate-200 shadow-2xs space-y-4">
-              <button
-                type="button"
-                onClick={() => toggleStage(7)}
-                className="w-full flex items-center justify-between text-left cursor-pointer"
-              >
-                <div className="flex items-center gap-3 font-bold text-sm text-slate-900">
-                  <span className="px-2 py-0.5 rounded bg-blue-100 text-[#1261A0] text-xs font-mono font-bold">
-                    STAGE 7 OF 14
-                  </span>
-                  <Lock className="w-4 h-4 text-[#1261A0]" />
-                  <span>Technical Security Configuration (HTTPS, TLS & Headers)</span>
-                  <span className={`px-2 py-0.5 rounded text-xs font-mono font-bold ${
-                    assessment.isHttps ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-                  }`}>
-                    {assessment.isHttps ? '✓ HTTPS ACTIVE' : '⚠ UNENCRYPTED HTTP'}
-                  </span>
+                {/* Key Metadata Row */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 border-t border-slate-100 text-[11px] font-mono">
+                  <div className="p-2 bg-slate-50 rounded-lg">
+                    <span className="text-slate-400 block text-[10px]">DOMAIN</span>
+                    <span className="font-bold text-slate-900 truncate block">{assessment.registeredDomain || assessment.hostname}</span>
+                  </div>
+                  <div className="p-2 bg-slate-50 rounded-lg">
+                    <span className="text-slate-400 block text-[10px]">LANGUAGE</span>
+                    <span className="font-bold text-slate-900 truncate block">{assessment.publicInformation?.language || 'en (detected)'}</span>
+                  </div>
+                  <div className="p-2 bg-slate-50 rounded-lg">
+                    <span className="text-slate-400 block text-[10px]">HTTP STATUS</span>
+                    <span className="font-bold text-slate-900 truncate block">{assessment.reachability?.httpStatusCode || 200}</span>
+                  </div>
+                  <div className="p-2 bg-slate-50 rounded-lg">
+                    <span className="text-slate-400 block text-[10px]">REDIRECTS</span>
+                    <span className="font-bold text-slate-900 truncate block">{assessment.redirectAnalysis?.redirectCount || 0} hop(s)</span>
+                  </div>
                 </div>
-                {openStages[7] ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-              </button>
+              </Card>
+            </div>
+          </div>
 
-              {openStages[7] && (
-                <div className="pt-3 border-t border-slate-100 space-y-4 text-xs">
-                  {/* TLS Certificate details */}
-                  <div className="space-y-2">
-                    <span className="font-bold text-slate-800 text-[11px] block">SSL / TLS Certificate Inspection:</span>
-                    <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-lg text-blue-900">
-                      <strong>Security Notice:</strong> HTTPS protects the connection between your browser and the server, but it does NOT prove that the website itself is legitimate.
+          {/* ======================================================== */}
+          {/* SECTION 2: EVIDENCE OBSERVED ON THE WEBSITE               */}
+          {/* ======================================================== */}
+          <Card className="p-6 bg-white border-slate-200 shadow-2xs space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <Eye className="w-5 h-5 text-[#1261A0]" />
+                  <h3 className="text-lg font-bold text-[#0B1F33]">
+                    2. Evidence Observed on the Website
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-500 font-medium">
+                  Information detected directly from the publicly accessible webpage markup, structure, and server headers.
+                </p>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
+                {observedEvidenceList.length} Evidence Items Logged
+              </span>
+            </div>
+
+            {observedEvidenceList.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {observedEvidenceList.map((item, idx) => (
+                  <div 
+                    key={idx} 
+                    className={`p-3.5 rounded-xl border flex items-start gap-3 transition-colors ${
+                      item.state === 'positive'
+                        ? 'bg-emerald-50/40 border-emerald-200 text-slate-800'
+                        : item.state === 'observation'
+                        ? 'bg-blue-50/40 border-blue-200 text-slate-800'
+                        : 'bg-rose-50/50 border-rose-200 text-slate-800'
+                    }`}
+                  >
+                    <div className="mt-0.5 shrink-0">
+                      {item.state === 'positive' ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      ) : item.state === 'observation' ? (
+                        <Info className="w-4 h-4 text-blue-600" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 text-rose-600" />
+                      )}
                     </div>
+                    <div className="space-y-1 flex-1 min-w-0">
+                      <p className="text-xs font-bold text-slate-900 leading-snug break-words">
+                        {item.title}
+                      </p>
+                      <div className="text-[10px] text-slate-500 font-mono">
+                        Source: {item.source}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 bg-slate-50 rounded-xl text-center text-xs text-slate-600">
+                Target server is unreachable or returned no readable HTML content for extraction.
+              </div>
+            )}
+          </Card>
 
-                    {assessment.tlsAnalysis?.certIssuer && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 font-mono text-[11px]">
-                        <div className="p-3 bg-slate-50 rounded-lg">
-                          <span className="text-slate-500 block">Certificate Authority:</span>
-                          <span className="font-bold text-slate-900 break-all">{assessment.tlsAnalysis.certIssuer}</span>
-                        </div>
-                        <div className="p-3 bg-slate-50 rounded-lg">
-                          <span className="text-slate-500 block">Subject Name:</span>
-                          <span className="font-bold text-slate-900 break-all">{assessment.tlsAnalysis.certSubject}</span>
-                        </div>
-                        <div className="p-3 bg-slate-50 rounded-lg">
-                          <span className="text-slate-500 block">Valid Until:</span>
-                          <span className="font-bold text-slate-900">{assessment.tlsAnalysis.certValidTo || 'N/A'}</span>
-                        </div>
-                        <div className="p-3 bg-slate-50 rounded-lg">
-                          <span className="text-slate-500 block">Days Remaining:</span>
-                          <span className="font-bold text-slate-900">{assessment.tlsAnalysis.certDaysRemaining !== undefined ? `${assessment.tlsAnalysis.certDaysRemaining} days` : 'N/A'}</span>
+          {/* ======================================================== */}
+          {/* SECTION 3: WEBSITE CONTENT & FUNCTIONALITY                */}
+          {/* ======================================================== */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3 flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <Sliders className="w-5 h-5 text-[#1261A0]" />
+                <h3 className="text-xl font-bold text-[#0B1F33]">
+                  3. Website Content & Functionality
+                </h3>
+              </div>
+              <span className="text-xs text-slate-500 font-medium">
+                Public page content summary, interactive functionality, and sensitive data requests
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* What Does the Page Contain? */}
+              <Card className="p-6 bg-white border-slate-200 shadow-2xs space-y-4 flex flex-col justify-between">
+                <div className="space-y-3">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-[#1261A0]" />
+                    <span>What Does the Page Contain?</span>
+                  </span>
+
+                  <div className="space-y-2 text-xs">
+                    {assessment.publicInformation?.pageTitle && (
+                      <div>
+                        <span className="text-slate-400 block text-[10px] font-mono">PAGE TITLE</span>
+                        <p className="font-bold text-slate-900 text-xs">
+                          {assessment.publicInformation.pageTitle}
+                        </p>
+                      </div>
+                    )}
+
+                    {assessment.publicInformation?.metaDescription && (
+                      <div>
+                        <span className="text-slate-400 block text-[10px] font-mono">META DESCRIPTION</span>
+                        <p className="text-slate-600 line-clamp-3 text-[11px] leading-relaxed">
+                          {assessment.publicInformation.metaDescription}
+                        </p>
+                      </div>
+                    )}
+
+                    {assessment.publicInformation?.mainTopics && assessment.publicInformation.mainTopics.length > 0 && (
+                      <div className="space-y-1 pt-1">
+                        <span className="text-slate-400 block text-[10px] font-mono">MAIN TOPICS / SECTIONS</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {assessment.publicInformation.mainTopics.map((topic, i) => (
+                            <span key={i} className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 text-[10px] font-medium">
+                              {topic}
+                            </span>
+                          ))}
                         </div>
                       </div>
                     )}
                   </div>
+                </div>
+
+                <div className="pt-2 text-[10px] text-slate-400 font-mono">
+                  Grounding: Extracted from public DOM & text nodes
+                </div>
+              </Card>
+
+              {/* Detected Website Functionality */}
+              <Card className="p-6 bg-white border-slate-200 shadow-2xs space-y-4 flex flex-col justify-between">
+                <div className="space-y-3">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <CheckSquare className="w-3.5 h-3.5 text-[#1261A0]" />
+                    <span>Detected Functionality</span>
+                  </span>
+
+                  {assessment.publicInformation?.functionalElements?.detectedList && assessment.publicInformation.functionalElements.detectedList.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-1 gap-2">
+                        {assessment.publicInformation.functionalElements.detectedList.map((feat, i) => (
+                          <div key={i} className="p-2 rounded-lg bg-blue-50/60 border border-blue-100 flex items-center gap-2 text-xs font-medium text-slate-800">
+                            <Check className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                            <span>{feat}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500 italic py-2">
+                      No specific interactive functionality (login, shopping, download forms) was reliably identified on the public landing page.
+                    </p>
+                  )}
+                </div>
+
+                <div className="pt-2 text-[10px] text-slate-400 font-mono">
+                  Non-invasive detection — forms are inspected, never submitted.
+                </div>
+              </Card>
+
+              {/* Potentially Sensitive Information Requested */}
+              <Card className="p-6 bg-white border-slate-200 shadow-2xs space-y-4 flex flex-col justify-between">
+                <div className="space-y-3">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <Key className="w-3.5 h-3.5 text-[#1261A0]" />
+                    <span>Sensitive Information Requests</span>
+                  </span>
+
+                  {assessment.webpageContent?.sensitiveFieldsDetected && assessment.webpageContent.sensitiveFieldsDetected.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-1.5 text-xs">
+                        <div className="font-bold text-amber-900 flex items-center gap-1.5">
+                          <AlertTriangle className="w-4 h-4 text-amber-600" />
+                          <span>Input Fields Detected on Page:</span>
+                        </div>
+                        <ul className="space-y-1 text-amber-800 text-[11px] pl-4 list-disc">
+                          {assessment.webpageContent.sensitiveFieldsDetected.map((sf, i) => (
+                            <li key={i}>
+                              <strong>{sf}</strong> (requested via public form element)
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1 text-xs">
+                      <div className="font-bold text-emerald-900 flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <span>No Sensitive Input Detected</span>
+                      </div>
+                      <p className="text-emerald-800 text-[11px] leading-relaxed">
+                        No obvious credentials, passwords, OTPs, or payment card input fields were detected on the analyzed public page.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-2 text-[10px] text-slate-400 font-mono">
+                  Always confirm official domain before submitting sensitive details.
+                </div>
+              </Card>
+            </div>
+          </div>
+
+          {/* ======================================================== */}
+          {/* SECTION 4: BASIC WEBSITE DATA                            */}
+          {/* ======================================================== */}
+          <Card className="p-6 bg-white border-slate-200 shadow-2xs space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <Database className="w-5 h-5 text-[#1261A0]" />
+                <h3 className="text-lg font-bold text-[#0B1F33]">
+                  4. Basic Website Data
+                </h3>
+              </div>
+              <span className="text-xs text-slate-500 font-medium">
+                Standard technical coordinates & live connection parameters
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 font-mono text-xs">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                <span className="text-slate-400 block text-[10px] uppercase">Domain</span>
+                <span className="font-bold text-slate-900 truncate block">{assessment.hostname}</span>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                <span className="text-slate-400 block text-[10px] uppercase">Protocol</span>
+                <span className="font-bold text-slate-900 flex items-center gap-1">
+                  {assessment.isHttps ? <Lock className="w-3.5 h-3.5 text-emerald-600" /> : <Unlock className="w-3.5 h-3.5 text-rose-600" />}
+                  <span>{assessment.protocol.toUpperCase()}</span>
+                </span>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                <span className="text-slate-400 block text-[10px] uppercase">HTTP Status</span>
+                <span className="font-bold text-slate-900 block">{assessment.reachability?.httpStatusCode || 200}</span>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                <span className="text-slate-400 block text-[10px] uppercase">Response Time</span>
+                <span className="font-bold text-slate-900 block">{assessment.reachability?.responseTimeMs ? `${assessment.reachability.responseTimeMs} ms` : 'N/A'}</span>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                <span className="text-slate-400 block text-[10px] uppercase">Content-Type</span>
+                <span className="font-bold text-slate-900 truncate block">{assessment.reachability?.contentType || 'text/html'}</span>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
+                <span className="text-slate-400 block text-[10px] uppercase">Detected Language</span>
+                <span className="font-bold text-slate-900 block">{assessment.publicInformation?.language || 'English (en)'}</span>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 sm:col-span-2">
+                <span className="text-slate-400 block text-[10px] uppercase">Final Resolved Destination</span>
+                <span className="font-bold text-slate-900 truncate block">{assessment.reachability?.finalUrl || assessment.normalizedUrl}</span>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1 sm:col-span-2">
+                <span className="text-slate-400 block text-[10px] uppercase">Link Extraction Count</span>
+                <span className="font-bold text-slate-900 block">
+                  {assessment.publicInformation?.linksInfo ? `${assessment.publicInformation.linksInfo.totalLinksCount} links (${assessment.publicInformation.linksInfo.internalLinksCount} internal, ${assessment.publicInformation.linksInfo.externalLinksCount} external)` : '0 links parsed'}
+                </span>
+              </div>
+            </div>
+          </Card>
+
+          {/* ======================================================== */}
+          {/* TECHNICAL & SECURITY ANALYSIS SECTIONS                    */}
+          {/* ======================================================== */}
+          <div className="space-y-6 pt-4">
+            <div className="border-b border-slate-200 pb-3">
+              <h3 className="text-xl font-bold text-[#0B1F33] flex items-center gap-2">
+                <Layers className="w-5 h-5 text-[#1261A0]" />
+                <span>Technical & Security Deep Dive</span>
+              </h3>
+              <p className="text-xs text-slate-500 font-medium">
+                Detailed inspections of network transport, TLS certificates, defensive headers, threat feeds, and AI models.
+              </p>
+            </div>
+
+            {/* SECTION 5: TECHNICAL ANALYSIS */}
+            <Card className="p-6 bg-white border-slate-200 shadow-2xs space-y-4">
+              <button
+                type="button"
+                onClick={() => toggleSection(5)}
+                className="w-full flex items-center justify-between text-left cursor-pointer"
+              >
+                <div className="flex items-center gap-3 font-bold text-sm text-slate-900">
+                  <span className="px-2 py-0.5 rounded bg-blue-100 text-[#1261A0] text-xs font-mono font-bold">
+                    5. TECHNICAL ANALYSIS
+                  </span>
+                  <Server className="w-4 h-4 text-[#1261A0]" />
+                  <span>URL Syntax, DNS Resolution & Reachability</span>
+                </div>
+                {openSections[5] ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+              </button>
+
+              {openSections[5] && (
+                <div className="pt-3 border-t border-slate-100 space-y-4 text-xs">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 font-mono">
+                    <div className="p-3 bg-slate-50 rounded-lg space-y-1">
+                      <span className="text-slate-400 block text-[10px]">URL VALIDITY</span>
+                      <span className="font-bold text-emerald-700">✓ Valid RFC 3986 Syntax</span>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 rounded-lg space-y-1">
+                      <span className="text-slate-400 block text-[10px]">DNS STATUS</span>
+                      <span className="font-bold text-slate-900">
+                        {assessment.dnsAnalysis?.domainExistenceStatus === 'exists' ? `Live (${assessment.dnsAnalysis.resolvedIps?.length || 1} IP resolved)` : 'NXDOMAIN / Unresolved'}
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 rounded-lg space-y-1">
+                      <span className="text-slate-400 block text-[10px]">REACHABILITY</span>
+                      <span className="font-bold text-slate-900">
+                        {assessment.reachability?.isReachable ? `Reachable (HTTP ${assessment.reachability.httpStatusCode})` : 'Unreachable'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Redirect Analysis */}
+                  {assessment.redirectAnalysis && (
+                    <div className="p-3.5 bg-slate-50 rounded-xl space-y-2 border border-slate-200">
+                      <div className="flex items-center justify-between font-bold text-slate-800 text-[11px]">
+                        <span>Redirect Chain Analysis ({assessment.redirectAnalysis.redirectCount} hops):</span>
+                        <span className={assessment.redirectAnalysis.hasDowngradeRedirect ? 'text-rose-600' : 'text-emerald-700'}>
+                          {assessment.redirectAnalysis.hasDowngradeRedirect ? '⚠ Insecure HTTPS Downgrade' : '✓ Normal Chain'}
+                        </span>
+                      </div>
+                      <p className="text-slate-600 text-[11px]">
+                        {assessment.redirectAnalysis.redirectSummary}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </Card>
+
+            {/* SECTION 6: SECURITY ANALYSIS */}
+            <Card className="p-6 bg-white border-slate-200 shadow-2xs space-y-4">
+              <button
+                type="button"
+                onClick={() => toggleSection(6)}
+                className="w-full flex items-center justify-between text-left cursor-pointer"
+              >
+                <div className="flex items-center gap-3 font-bold text-sm text-slate-900">
+                  <span className="px-2 py-0.5 rounded bg-blue-100 text-[#1261A0] text-xs font-mono font-bold">
+                    6. SECURITY ANALYSIS
+                  </span>
+                  <Lock className="w-4 h-4 text-[#1261A0]" />
+                  <span>HTTPS / TLS Certificate & Defensive Security Headers</span>
+                </div>
+                {openSections[6] ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+              </button>
+
+              {openSections[6] && (
+                <div className="pt-3 border-t border-slate-100 space-y-4 text-xs">
+                  {/* TLS Certificate */}
+                  {assessment.tlsAnalysis && (
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                      <div className="font-bold text-slate-900 text-xs flex items-center gap-2">
+                        <Lock className="w-4 h-4 text-emerald-600" />
+                        <span>TLS / SSL Certificate Health</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono text-[11px]">
+                        <div className="p-2.5 bg-white rounded-lg border border-slate-200">
+                          <span className="text-slate-400 block text-[10px]">ISSUER</span>
+                          <span className="font-bold text-slate-900 truncate block">{assessment.tlsAnalysis.certIssuer || 'N/A'}</span>
+                        </div>
+                        <div className="p-2.5 bg-white rounded-lg border border-slate-200">
+                          <span className="text-slate-400 block text-[10px]">VALID UNTIL</span>
+                          <span className="font-bold text-slate-900 truncate block">{assessment.tlsAnalysis.certValidTo || 'N/A'}</span>
+                        </div>
+                        <div className="p-2.5 bg-white rounded-lg border border-slate-200">
+                          <span className="text-slate-400 block text-[10px]">DAYS REMAINING</span>
+                          <span className="font-bold text-slate-900 block">{assessment.tlsAnalysis.certDaysRemaining !== undefined ? `${assessment.tlsAnalysis.certDaysRemaining} days` : 'N/A'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Defensive Security Headers */}
                   {assessment.securityHeaders && (
-                    <div className="space-y-2 pt-2 border-t border-slate-100">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-800 text-[11px] block">
-                          Defensive HTTP Security Headers ({assessment.securityHeaders.presentCount} / {assessment.securityHeaders.headers.length} present):
-                        </span>
-                        <span className="text-[10px] text-slate-500">Missing headers are configuration observations</span>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-800">
+                        <span>Defensive HTTP Headers ({assessment.securityHeaders.presentCount} / {assessment.securityHeaders.headers.length} present):</span>
+                        <span className="text-slate-500 font-normal">Missing headers are configuration observations</span>
                       </div>
 
-                      <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
+                      <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white">
                         {assessment.securityHeaders.headers.map((h, i) => (
-                          <div key={i} className="p-3 flex items-start justify-between gap-3 hover:bg-slate-50/50">
+                          <div key={i} className="p-3 flex items-start justify-between gap-3 hover:bg-slate-50/60">
                             <div className="space-y-0.5">
                               <div className="font-bold text-slate-900 flex items-center gap-1.5">
                                 {h.status === 'present' ? (
@@ -1267,88 +1406,32 @@ Notice: CyberSafe is a college community first-level threat assessment tool. Zer
               )}
             </Card>
 
-            {/* STAGE 8: URL HEURISTICS & SYNTAX ANOMALIES */}
-            <Card className="p-6 bg-white border-slate-200 shadow-2xs space-y-4">
-              <button
-                type="button"
-                onClick={() => toggleStage(8)}
-                className="w-full flex items-center justify-between text-left cursor-pointer"
-              >
-                <div className="flex items-center gap-3 font-bold text-sm text-slate-900">
-                  <span className="px-2 py-0.5 rounded bg-blue-100 text-[#1261A0] text-xs font-mono font-bold">
-                    STAGE 8 OF 14
-                  </span>
-                  <Activity className="w-4 h-4 text-[#1261A0]" />
-                  <span>URL Heuristic & Syntax Anomalies ({assessment.indicators?.length || 0} indicators)</span>
-                </div>
-                {openStages[8] ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-              </button>
-
-              {openStages[8] && (
-                <div className="pt-3 border-t border-slate-100 space-y-3.5 text-xs">
-                  <div className="p-3 bg-slate-50 rounded-lg text-slate-600 text-[11px]">
-                    <strong>Heuristic Principle:</strong> URL heuristics examine structural and character anomalies. Do not classify a URL as malicious merely because it contains authentication or financial words; multiple independent markers are evaluated together.
-                  </div>
-
-                  <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden">
-                    {assessment.indicators && assessment.indicators.length > 0 ? (
-                      assessment.indicators.map((ind, i) => (
-                        <div key={i} className="p-3 space-y-1 hover:bg-slate-50/50">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-slate-900 flex items-center gap-1.5">
-                              {ind.status === 'risk' ? (
-                                <AlertOctagon className="w-3.5 h-3.5 text-rose-600" />
-                              ) : ind.status === 'warning' ? (
-                                <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-                              ) : (
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                              )}
-                              <span>{ind.name}</span>
-                            </span>
-                            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
-                              Impact: +{ind.impactPoints} pts
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-600">{ind.description}</p>
-                          <p className="text-[10px] text-slate-500 font-mono">Why it matters: {ind.whyItMatters}</p>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="p-3 text-slate-500 text-center font-medium">
-                        No anomalous URL heuristic flags detected. Standard format.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </Card>
-
-            {/* STAGE 9: BRAND IMPERSONATION & TYPOSQUATTING */}
+            {/* SECTION 7: PHISHING & IMPERSONATION ANALYSIS */}
             <Card className={`p-6 border shadow-2xs space-y-4 ${
-              assessment.brandImpersonation?.isImpersonatingBrand ? 'bg-rose-50/60 border-rose-300' : 'bg-white border-slate-200'
+              assessment.brandImpersonation?.isImpersonatingBrand ? 'bg-rose-50/50 border-rose-300' : 'bg-white border-slate-200'
             }`}>
               <button
                 type="button"
-                onClick={() => toggleStage(9)}
+                onClick={() => toggleSection(7)}
                 className="w-full flex items-center justify-between text-left cursor-pointer"
               >
                 <div className="flex items-center gap-3 font-bold text-sm text-slate-900">
                   <span className="px-2 py-0.5 rounded bg-blue-100 text-[#1261A0] text-xs font-mono font-bold">
-                    STAGE 9 OF 14
+                    7. PHISHING & IMPERSONATION
                   </span>
                   <UserCheck className="w-4 h-4 text-[#1261A0]" />
-                  <span>Brand Impersonation & Typosquatting Detection</span>
+                  <span>Brand Deception & Lookalike Detection</span>
                   <span className={`px-2 py-0.5 rounded text-xs font-mono font-bold ${
                     assessment.brandImpersonation?.isImpersonatingBrand ? 'bg-rose-600 text-white' : 'bg-emerald-50 text-emerald-700'
                   }`}>
-                    {assessment.brandImpersonation?.isImpersonatingBrand ? '⚠ POSSIBLE IMPERSONATION' : '✓ NO SPOOFING DETECTED'}
+                    {assessment.brandImpersonation?.isImpersonatingBrand ? '⚠ SUSPECTED SPOOFING' : '✓ NO BRAND MIMICRY'}
                   </span>
                 </div>
-                {openStages[9] ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                {openSections[7] ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
               </button>
 
-              {openStages[9] && (
-                <div className="pt-3 border-t border-slate-200/80 space-y-3.5 text-xs">
+              {openSections[7] && (
+                <div className="pt-3 border-t border-slate-200/80 space-y-3 text-xs">
                   {assessment.brandImpersonation?.isImpersonatingBrand ? (
                     <div className="p-4 bg-white rounded-xl border border-rose-200 text-slate-800 space-y-2">
                       <div className="font-extrabold text-rose-900 text-sm">
@@ -1372,39 +1455,39 @@ Notice: CyberSafe is a college community first-level threat assessment tool. Zer
               )}
             </Card>
 
-            {/* STAGE 10: THREAT INTELLIGENCE */}
+            {/* SECTION 8: THREAT INTELLIGENCE */}
             <Card className="p-6 bg-white border-slate-200 shadow-2xs space-y-4">
               <button
                 type="button"
-                onClick={() => toggleStage(10)}
+                onClick={() => toggleSection(8)}
                 className="w-full flex items-center justify-between text-left cursor-pointer"
               >
                 <div className="flex items-center gap-3 font-bold text-sm text-slate-900">
                   <span className="px-2 py-0.5 rounded bg-blue-100 text-[#1261A0] text-xs font-mono font-bold">
-                    STAGE 10 OF 14
+                    8. THREAT INTELLIGENCE
                   </span>
                   <Globe className="w-4 h-4 text-[#1261A0]" />
-                  <span>Threat Intelligence Feeds & Reputation</span>
+                  <span>External Reputation & Feed Records</span>
                   <span className="px-2 py-0.5 rounded text-xs font-mono font-bold bg-slate-100 text-slate-800">
                     {assessment.reputationReport.status}
                   </span>
                 </div>
-                {openStages[10] ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                {openSections[8] ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
               </button>
 
-              {openStages[10] && (
+              {openSections[8] && (
                 <div className="pt-3 border-t border-slate-100 space-y-3.5 text-xs">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono text-[11px]">
                     <div className="p-3 bg-slate-50 rounded-lg">
-                      <span className="text-slate-500 block">Intelligence Provider:</span>
+                      <span className="text-slate-400 block text-[10px]">INTELLIGENCE PROVIDER</span>
                       <span className="font-bold text-slate-900">{assessment.reputationReport.provider}</span>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-lg">
-                      <span className="text-slate-500 block">Reported Status:</span>
+                      <span className="text-slate-400 block text-[10px]">REPORTED STATUS</span>
                       <span className="font-bold text-slate-900">{assessment.reputationReport.status}</span>
                     </div>
                     <div className="p-3 bg-slate-50 rounded-lg">
-                      <span className="text-slate-500 block">Identified Flags:</span>
+                      <span className="text-slate-400 block text-[10px]">IDENTIFIED FLAGS</span>
                       <span className="font-bold text-slate-900">
                         {assessment.reputationReport.threatTypes.length > 0 ? assessment.reputationReport.threatTypes.join(', ') : 'None listed'}
                       </span>
@@ -1422,27 +1505,27 @@ Notice: CyberSafe is a college community first-level threat assessment tool. Zer
               )}
             </Card>
 
-            {/* STAGE 11: GEMINI AI SEMANTIC WEBPAGE ANALYSIS */}
+            {/* SECTION 9: AI SECURITY ASSESSMENT */}
             <Card className="p-6 bg-gradient-to-r from-blue-50/50 to-indigo-50/40 border-blue-200 shadow-2xs space-y-4">
               <button
                 type="button"
-                onClick={() => toggleStage(11)}
+                onClick={() => toggleSection(9)}
                 className="w-full flex items-center justify-between text-left cursor-pointer"
               >
                 <div className="flex items-center gap-3 font-bold text-sm text-[#0B1F33]">
                   <span className="px-2 py-0.5 rounded bg-blue-200 text-blue-900 text-xs font-mono font-bold">
-                    STAGE 11 OF 14
+                    9. AI SECURITY ASSESSMENT
                   </span>
                   <Sparkles className="w-4 h-4 text-[#1261A0]" />
-                  <span>Gemini AI Semantic Webpage Analysis</span>
+                  <span>Gemini AI Semantic Analysis</span>
                   <span className="px-2 py-0.5 rounded text-xs font-bold bg-white text-blue-900 shadow-2xs">
                     {assessment.aiAnalysis?.modelUsed || 'Gemini 3.8 Flash'}
                   </span>
                 </div>
-                {openStages[11] ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                {openSections[9] ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
               </button>
 
-              {openStages[11] && (
+              {openSections[9] && (
                 <div className="pt-3 border-t border-blue-100 space-y-3.5 text-xs">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="p-3.5 bg-white rounded-xl border border-blue-100 shadow-2xs space-y-1">
@@ -1453,7 +1536,7 @@ Notice: CyberSafe is a college community first-level threat assessment tool. Zer
                     </div>
 
                     <div className="p-3.5 bg-white rounded-xl border border-blue-100 shadow-2xs space-y-1">
-                      <span className="text-slate-500 font-bold block text-[11px]">Semantic Security Observations:</span>
+                      <span className="text-slate-500 font-bold block text-[11px]">Security Observations:</span>
                       <p className="text-slate-800 leading-relaxed font-medium">
                         {assessment.aiAnalysis?.explanation || assessment.executiveSummary}
                       </p>
@@ -1467,27 +1550,27 @@ Notice: CyberSafe is a college community first-level threat assessment tool. Zer
               )}
             </Card>
 
-            {/* STAGE 12: OVERALL RISK SCORING & TRANSPARENT WEIGHTS */}
+            {/* SECTION 10: OVERALL RISK SCORE & WHY THIS SCORE */}
             <Card className="p-6 bg-white border-slate-200 shadow-2xs space-y-4">
               <button
                 type="button"
-                onClick={() => toggleStage(12)}
+                onClick={() => toggleSection(10)}
                 className="w-full flex items-center justify-between text-left cursor-pointer"
               >
                 <div className="flex items-center gap-3 font-bold text-sm text-slate-900">
                   <span className="px-2 py-0.5 rounded bg-blue-100 text-[#1261A0] text-xs font-mono font-bold">
-                    STAGE 12 OF 14
+                    10. OVERALL RISK
                   </span>
                   <Activity className="w-4 h-4 text-[#1261A0]" />
-                  <span>Overall Risk Scoring & Transparent Weights (0–100 Model)</span>
+                  <span>Risk Scoring & Transparent Weights</span>
                   <span className="px-2 py-0.5 rounded text-xs font-mono font-bold bg-slate-100 text-slate-900">
-                    {assessment.riskScore} / 100
+                    {assessment.riskScore} / 100 ({assessment.riskCategory || assessment.riskLevel})
                   </span>
                 </div>
-                {openStages[12] ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+                {openSections[10] ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
               </button>
 
-              {openStages[12] && (
+              {openSections[10] && (
                 <div className="pt-3 border-t border-slate-100 space-y-4 text-xs">
                   {assessment.transparentWeights && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -1513,55 +1596,18 @@ Notice: CyberSafe is a college community first-level threat assessment tool. Zer
                   )}
 
                   <div className="p-3 rounded-lg bg-slate-50 text-[11px] text-slate-500 leading-relaxed">
-                    * <strong>Notice:</strong> This score is calculated via CyberSafe&apos;s transparent academic risk weighting model (0–24 Low, 25–49 Moderate, 50–74 High, 75–100 Critical). It is not an official CVSS or CVE score.
+                    * <strong>Notice:</strong> This score is calculated via CyberSafe&apos;s transparent academic risk weighting model (0–24 Low, 25–49 Moderate, 50–74 High, 75–100 Critical).
                   </div>
                 </div>
               )}
             </Card>
 
-            {/* STAGE 13: WHY? (SYNTHESIZED SECURITY FINDINGS) */}
-            <Card className="p-6 bg-white border-slate-200 shadow-2xs space-y-4">
-              <button
-                type="button"
-                onClick={() => toggleStage(13)}
-                className="w-full flex items-center justify-between text-left cursor-pointer"
-              >
-                <div className="flex items-center gap-3 font-bold text-sm text-slate-900">
-                  <span className="px-2 py-0.5 rounded bg-blue-100 text-[#1261A0] text-xs font-mono font-bold">
-                    STAGE 13 OF 14
-                  </span>
-                  <HelpCircle className="w-4 h-4 text-[#1261A0]" />
-                  <span>Why Did the System Give This Result?</span>
-                </div>
-                {openStages[13] ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-              </button>
-
-              {openStages[13] && (
-                <div className="pt-3 border-t border-slate-100 space-y-3 text-xs text-slate-700">
-                  <p className="font-medium leading-relaxed">
-                    {assessment.explanation}
-                  </p>
-
-                  <div className="p-3.5 bg-slate-50 rounded-xl space-y-2 border border-slate-200">
-                    <span className="font-bold text-slate-900 block text-[11px]">Primary Contributing Factors:</span>
-                    <ul className="space-y-1.5 text-slate-600">
-                      <li>• <strong>Protocol & Transport:</strong> {assessment.isHttps ? 'HTTPS encryption active on port 443.' : 'Unencrypted plain HTTP communication (port 80).'}</li>
-                      <li>• <strong>Domain Resolution:</strong> {assessment.dnsAnalysis?.domainExistenceStatus === 'exists' ? `Live DNS confirmed with ${assessment.dnsAnalysis?.resolvedIps?.length || 1} IP(s).` : 'Domain could not be resolved (NXDOMAIN).'}</li>
-                      <li>• <strong>Brand Check:</strong> {assessment.brandImpersonation?.isImpersonatingBrand ? `Spoofed target: ${assessment.brandImpersonation.suspectedBrand}.` : 'No lookalike spoofing identified.'}</li>
-                      <li>• <strong>Input Fields:</strong> {assessment.webpageContent?.sensitiveFieldsDetected?.length ? `Forms requesting sensitive input (${assessment.webpageContent.sensitiveFieldsDetected.join(', ')}).` : 'No direct high-risk credential or card fields detected.'}</li>
-                      <li>• <strong>Reputation:</strong> {assessment.reputationReport.status} from {assessment.reputationReport.provider}.</li>
-                    </ul>
-                  </div>
-                </div>
-              )}
-            </Card>
-
-            {/* STAGE 14: RECOMMENDED USER ACTION & BOUNDARIES */}
+            {/* SECTION 11: RECOMMENDED ACTIONS */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card className="p-6 space-y-3.5 shadow-sm border-slate-200 bg-white">
                 <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
                   <span className="px-2 py-0.5 rounded bg-blue-100 text-[#1261A0] text-xs font-mono font-bold">
-                    STAGE 14 OF 14
+                    11. ACTION
                   </span>
                   <Check className="w-4 h-4 text-emerald-600" />
                   <span>Recommended User Actions</span>
@@ -1602,6 +1648,7 @@ Notice: CyberSafe is a college community first-level threat assessment tool. Zer
                 </ul>
               </Card>
             </div>
+
           </div>
         </div>
       )}

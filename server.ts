@@ -521,6 +521,13 @@ async function checkHttpAndContent(
         hasAccountCreation: false,
         detectedList: [] as string[],
       },
+      contentLengthBytes: 0,
+      linksInfo: {
+        totalLinksCount: 0,
+        internalLinksCount: 0,
+        externalLinksCount: 0,
+        sampleLinks: [] as Array<{ text: string; href: string; isExternal: boolean }>,
+      },
     },
   };
 
@@ -833,6 +840,54 @@ async function checkHttpAndContent(
             detectedList,
           };
 
+          // Link extraction and analysis
+          const linkMatches = truncatedHtml.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi);
+          let totalLinks = 0;
+          let internalLinks = 0;
+          let externalLinks = 0;
+          const sampleLinks: Array<{ text: string; href: string; isExternal: boolean }> = [];
+          let curHost = '';
+          try {
+            curHost = new URL(currentUrl).hostname.toLowerCase();
+          } catch {}
+
+          for (const lm of linkMatches) {
+            totalLinks++;
+            const attrs = lm[1] || '';
+            const anchorText = lm[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            const hrefMatch = attrs.match(/href=["']([^"']*)["']/i);
+            const href = hrefMatch ? hrefMatch[1].trim() : '';
+
+            if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
+              let isExt = false;
+              try {
+                if (/^https?:\/\//i.test(href)) {
+                  const parsed = new URL(href);
+                  isExt = parsed.hostname.toLowerCase() !== curHost;
+                }
+              } catch {}
+
+              if (isExt) externalLinks++;
+              else internalLinks++;
+
+              if (sampleLinks.length < 8 && anchorText.length > 1 && anchorText.length < 50) {
+                sampleLinks.push({
+                  text: anchorText,
+                  href: href.length > 80 ? href.substring(0, 80) + '...' : href,
+                  isExternal: isExt,
+                });
+              }
+            }
+          }
+
+          result.webpageContent.linksInfo = {
+            totalLinksCount: totalLinks,
+            internalLinksCount: internalLinks,
+            externalLinksCount: externalLinks,
+            sampleLinks,
+          };
+          result.webpageContent.contentLengthBytes = rawText.length;
+
           const scriptTags = truncatedHtml.matchAll(/<script[^>]*src=["']([^"']+)["']/gi);
           let scriptCount = 0;
           for (const _ of scriptTags) scriptCount++;
@@ -942,7 +997,7 @@ function checkBrandImpersonation(hostname: string, pathname: string) {
 }
 
 /**
- * Performs semantic analysis using Gemini (with structured fallback).
+ * Performs semantic analysis using Gemini (with deterministic evidence-grounded fallback).
  */
 async function performGeminiSemanticAnalysis(params: {
   url: string;
@@ -954,50 +1009,142 @@ async function performGeminiSemanticAnalysis(params: {
 }) {
   const { url, hostname, reachability, webpageContent, brandResult, heuristicSummary } = params;
 
-  if (ai) {
-    try {
-      const prompt = `You are a senior cybersecurity researcher and web security analyst evaluating a URL and its retrieved public webpage content.
-Analyze the following technical artifacts and return a strict JSON assessment.
+  // Case 1: Nonexistent domain (DNS Failure)
+  if (reachability.classification === 'dns_failure') {
+    return {
+      websiteType: 'UNKNOWN (Domain Unresolved)',
+      websitePurpose: 'Webpage content analysis unavailable because the domain could not be resolved.',
+      confidence: 'Low' as const,
+      evidence: [
+        'Domain resolution failed (NXDOMAIN / DNS error)',
+        'No active DNS records found for host',
+      ],
+      mainTopics: [],
+      callsToAction: [],
+      publicContactInfo: [],
+      primaryContentSummary: 'Webpage content unavailable because the domain could not be resolved.',
+      potentiallySensitiveActions: [],
+      phishingIndicators: [],
+      contentIndicators: ['Domain nonexistent or DNS lookup failed'],
+      brandImpersonation: false,
+      explanation: 'The domain could not be resolved at the time of analysis. This may indicate a nonexistent domain, DNS failure, expired configuration, or temporary availability issue. This alone does not prove malicious intent.',
+      recommendedActions: [
+        'Check that the address is spelled correctly.',
+        'Verify if the intended domain has moved to a new web address.',
+      ],
+      modelUsed: 'deterministic-dns-evaluator',
+      isAiGenerated: false,
+    };
+  }
 
-Target URL: ${url}
-Hostname: ${hostname}
-Website Reachability: ${reachability.classification} (HTTP ${reachability.httpStatusCode || 'N/A'})
+  // Case 2: Unreachable server (Timeout / Refused / Error)
+  if (!reachability.isReachable) {
+    const is404 = reachability.httpStatusCode === 404 || reachability.classification === 'not_found';
+    if (is404) {
+      return {
+        websiteType: 'HTTP 404 (Resource Not Found)',
+        websitePurpose: 'The target web server is online and reachable, but the requested specific URL path does not exist on this server.',
+        confidence: 'High' as const,
+        evidence: [
+          'Server accepted TCP connection and returned HTTP 404 Not Found',
+          'Domain exists and web server is active, but specific path is missing',
+        ],
+        mainTopics: ['Page Not Found', 'HTTP 404 Response'],
+        callsToAction: ['Check URL path spelling'],
+        publicContactInfo: [],
+        primaryContentSummary: 'The web server responded with HTTP 404 Not Found indicating the specific requested resource does not exist.',
+        potentiallySensitiveActions: [],
+        phishingIndicators: [],
+        contentIndicators: ['Server responded with HTTP 404 Not Found'],
+        brandImpersonation: false,
+        explanation: 'The domain was successfully resolved and the server is online, but the requested page path returned HTTP 404 Not Found. This indicates a missing page, not a nonexistent domain.',
+        recommendedActions: [
+          'Check that the path in the web address is spelled correctly.',
+          'Navigate to the root domain to locate the intended page.',
+        ],
+        modelUsed: 'deterministic-http-evaluator',
+        isAiGenerated: false,
+      };
+    }
+
+    return {
+      websiteType: 'UNKNOWN (Server Unreachable)',
+      websitePurpose: 'Webpage content could not be analyzed because the target server is currently unreachable or not responding.',
+      confidence: 'Low' as const,
+      evidence: [
+        reachability.explanation || 'Server failed to respond within connection timeout',
+        `Reachability classification: ${reachability.classification}`,
+      ],
+      mainTopics: [],
+      callsToAction: [],
+      publicContactInfo: [],
+      primaryContentSummary: 'Webpage content unavailable.',
+      potentiallySensitiveActions: [],
+      phishingIndicators: [],
+      contentIndicators: ['Server unreachable over network'],
+      brandImpersonation: false,
+      explanation: reachability.explanation || 'Unable to connect to remote web server.',
+      recommendedActions: [
+        'Check network connectivity and server status.',
+        'Verify if the target server is temporarily down for maintenance.',
+      ],
+      modelUsed: 'deterministic-network-evaluator',
+      isAiGenerated: false,
+    };
+  }
+
+  // Case 3: Reachable website with content - Attempt Gemini semantic analysis with strict evidence constraints
+  if (ai && webpageContent.isContentFetched) {
+    try {
+      const prompt = `You are a strict cybersecurity researcher and evidence-based web analyst.
+Analyze ONLY the provided retrieved webpage artifacts below.
+Do NOT use assumed knowledge about the brand or domain. Do NOT invent forms, links, or text that are not present in the evidence.
+
+RETRIEVED WEBPAGE EVIDENCE:
+URL: ${url}
+Final Resolved URL: ${reachability.finalUrl || url}
+HTTP Status: HTTP ${reachability.httpStatusCode || 200}
 Page Title: ${webpageContent.pageTitle || 'None detected'}
 Meta Description: ${webpageContent.metaDescription || 'None detected'}
-Extracted Headings: ${(webpageContent.headings || []).join(' | ') || 'None detected'}
-Visible Text Snippet: ${webpageContent.textExcerpt ? webpageContent.textExcerpt.substring(0, 800) : 'None available'}
-Detected Forms: ${JSON.stringify(webpageContent.formsDetected || []).substring(0, 400)}
-Detected Functional Elements: ${JSON.stringify(webpageContent.functionalElements?.detectedList || [])}
-Sensitive Fields Detected: ${(webpageContent.sensitiveFieldsDetected || []).join(', ') || 'None'}
-Brand Impersonation Signal: ${brandResult.isImpersonatingBrand ? `Yes, suspected brand ${brandResult.suspectedBrand}: ${brandResult.impersonationEvidence}` : 'None'}
+Language: ${webpageContent.language || 'Unspecified'}
+Main Heading: ${webpageContent.mainHeading || 'None detected'}
+Headings: ${(webpageContent.headings || []).join(' | ') || 'None detected'}
+Visible Text Snippet: ${webpageContent.textExcerpt ? webpageContent.textExcerpt.substring(0, 1000) : 'None available'}
+Forms Detected (${webpageContent.formsDetected?.length || 0}): ${JSON.stringify(webpageContent.formsDetected || []).substring(0, 500)}
+Detected Functional Elements: ${(webpageContent.functionalElements?.detectedList || []).join(', ') || 'None'}
+Sensitive Input Fields Detected: ${(webpageContent.sensitiveFieldsDetected || []).join(', ') || 'None'}
+Links Info: Total: ${webpageContent.linksInfo?.totalLinksCount || 0}, Internal: ${webpageContent.linksInfo?.internalLinksCount || 0}, External: ${webpageContent.linksInfo?.externalLinksCount || 0}, Nav Anchors: ${(webpageContent.linksInfo?.sampleLinks || []).map((l: any) => l.text).join(' | ') || 'None'}
+Brand Impersonation Check: ${brandResult.isImpersonatingBrand ? `Flagged: Spoofing ${brandResult.suspectedBrand} (${brandResult.impersonationEvidence})` : 'No spoofing detected'}
 Technical Heuristics: ${heuristicSummary}
 
-Rules:
-1. NEVER claim a website is completely safe. Phrasing must be calibrated: "No significant threats detected" or "Potentially suspicious".
-2. If website was unreachable or domain nonexistent, state clearly based on technical evidence: "Webpage content analysis unavailable because the domain could not be resolved."
-3. Classify website_type objectively into ONE of the following: "Search Engine", "Social Media", "E-commerce", "Banking / Financial", "Government", "Education", "News / Media", "Blog", "Technology", "Software / SaaS", "Authentication / Login", "Cloud Service", "File Sharing", "Entertainment", "Streaming", "Cryptocurrency", "Healthcare", "Travel", "Business / Corporate", "Portfolio", "Forum / Community", "Documentation", "Download Website", "Advertisement", "Unknown".
-4. Provide specific bulleted "classification_evidence" citing actual elements found (e.g. "Product catalog detected", "Login form present").
-5. Extract "main_topics", "calls_to_action", and "public_contact_info" if present in the public text.
+INSTRUCTIONS:
+1. Classify website_type into the most accurate category supported by evidence: "Search Engine", "Social Media", "E-commerce", "Banking / Financial", "Government", "Education", "News / Media", "Blog", "Technology / Software", "Authentication / Login", "Cloud Service", "File Sharing", "Entertainment", "Streaming", "Documentation", "Healthcare", "Travel", "Business / Corporate", "Portfolio", "Forum / Community", "Download Website", "Other", "Unknown". If evidence is insufficient, return "Unknown".
+2. website_purpose must be a 1-2 sentence description grounded specifically in the page title, headings, and extracted text.
+3. classification_evidence must list 2-4 specific bullet points citing actual elements found (e.g. 'Page title contains "..."', 'Search form input detected', 'Headings reference software repositories').
+4. summary must be a 1-2 sentence factual summary of the visible content.
+5. sensitive_data_requested must only list fields that were actually detected on this page. If none, return [].
+6. phishing_indicators must list any suspicious deception or cleartext submission found, or empty array if none.
+7. explanation must be a 2-3 sentence human-readable assessment of the security posture based on the evidence.
 
 Return strict JSON format:
 {
   "website_type": "...",
-  "website_purpose": "1-2 sentence concise explanation of website purpose",
+  "website_purpose": "...",
   "classification_confidence": "High" | "Medium" | "Low",
-  "classification_evidence": ["Evidence point 1", "Evidence point 2"],
-  "main_topics": ["Topic 1", "Topic 2"],
-  "calls_to_action": ["CTA 1", "CTA 2"],
-  "public_contact_info": ["Public contact information if visible"],
-  "summary": "1-2 sentence concise summary of visible content",
-  "sensitive_data_requested": ["Username", "Password", etc.],
+  "classification_evidence": ["..."],
+  "main_topics": ["..."],
+  "calls_to_action": ["..."],
+  "public_contact_info": ["..."],
+  "summary": "...",
+  "sensitive_data_requested": ["..."],
   "phishing_indicators": [
     { "indicator": "...", "evidence": "...", "severity": "low" | "medium" | "high" | "critical" }
   ],
   "content_indicators": ["..."],
   "brand_impersonation": boolean,
   "confidence": "High" | "Medium" | "Low",
-  "explanation": "2-3 sentence human-readable cybersecurity explanation of why this risk level was assigned",
-  "recommended_actions": ["Action 1", "Action 2"]
+  "explanation": "...",
+  "recommended_actions": ["..."]
 }`;
 
       const resp = await withTimeout(
@@ -1006,127 +1153,164 @@ Return strict JSON format:
           contents: prompt,
           config: {
             responseMimeType: 'application/json',
-            temperature: 0.2,
+            temperature: 0.1,
           },
         }),
-        3500,
+        4500,
         null
       );
 
       const text = resp?.text;
       if (text) {
         const parsed = JSON.parse(text);
-        return {
-          websiteType: parsed.website_type || 'General Web Resource',
-          websitePurpose: parsed.website_purpose || 'General web resource',
-          confidence: parsed.classification_confidence || parsed.confidence || 'Medium',
-          evidence: Array.isArray(parsed.classification_evidence) && parsed.classification_evidence.length > 0
-            ? parsed.classification_evidence
-            : ['Public domain and webpage metadata evaluated.'],
-          mainTopics: parsed.main_topics || webpageContent.headings?.slice(0, 3) || [],
-          callsToAction: parsed.calls_to_action || [],
-          publicContactInfo: parsed.public_contact_info || [],
-          primaryContentSummary: parsed.summary || 'Public webpage content.',
-          potentiallySensitiveActions: parsed.sensitive_data_requested || webpageContent.sensitiveFieldsDetected || [],
-          phishingIndicators: parsed.phishing_indicators || [],
-          contentIndicators: parsed.content_indicators || [],
-          brandImpersonation: Boolean(parsed.brand_impersonation || brandResult.isImpersonatingBrand),
-          explanation: parsed.explanation || '',
-          recommendedActions: parsed.recommended_actions || [
-            'Verify the address bar domain spelling carefully before entering sensitive information.',
-            'Ensure HTTPS encryption is active and bookmark verified services.',
-          ],
-          modelUsed: 'gemini-3.8-flash',
-          isAiGenerated: true,
-        };
+        if (parsed.website_type && parsed.website_purpose) {
+          return {
+            websiteType: parsed.website_type,
+            websitePurpose: parsed.website_purpose,
+            confidence: parsed.classification_confidence || parsed.confidence || 'High',
+            evidence: Array.isArray(parsed.classification_evidence) && parsed.classification_evidence.length > 0
+              ? parsed.classification_evidence
+              : [webpageContent.pageTitle ? `Page title: "${webpageContent.pageTitle}"` : 'Public webpage content analyzed'],
+            mainTopics: Array.isArray(parsed.main_topics) && parsed.main_topics.length > 0
+              ? parsed.main_topics
+              : webpageContent.headings?.slice(0, 3) || [],
+            callsToAction: Array.isArray(parsed.calls_to_action) && parsed.calls_to_action.length > 0
+              ? parsed.calls_to_action
+              : webpageContent.functionalElements?.detectedList?.slice(0, 3) || [],
+            publicContactInfo: Array.isArray(parsed.public_contact_info) ? parsed.public_contact_info : [],
+            primaryContentSummary: parsed.summary || webpageContent.metaDescription || webpageContent.textExcerpt?.substring(0, 250) || 'Public webpage content analyzed.',
+            potentiallySensitiveActions: Array.isArray(parsed.sensitive_data_requested) ? parsed.sensitive_data_requested : webpageContent.sensitiveFieldsDetected || [],
+            phishingIndicators: Array.isArray(parsed.phishing_indicators) ? parsed.phishing_indicators : [],
+            contentIndicators: Array.isArray(parsed.content_indicators) ? parsed.content_indicators : [],
+            brandImpersonation: Boolean(parsed.brand_impersonation || brandResult.isImpersonatingBrand),
+            explanation: parsed.explanation || `Website responded with HTTP ${reachability.httpStatusCode || 200}. Content and security indicators evaluated.`,
+            recommendedActions: Array.isArray(parsed.recommended_actions) && parsed.recommended_actions.length > 0
+              ? parsed.recommended_actions
+              : [
+                  'Verify the address bar domain spelling carefully before entering sensitive information.',
+                  'Ensure HTTPS encryption is active and bookmark verified services.',
+                ],
+            modelUsed: 'gemini-3.8-flash',
+            isAiGenerated: true,
+          };
+        }
       }
     } catch (err) {
-      console.warn('[Detect] Gemini analysis unavailable or rate-limited, using rule-based expert analysis:', err);
+      console.warn('[Detect] Gemini analysis unavailable or timed out, executing deterministic content-grounded semantic analysis:', err);
     }
   }
 
-  // Academic Rule-Based Semantic Fallback Engine
-  if (reachability.classification === 'dns_failure') {
-    return {
-      websiteType: 'Analysis Unavailable',
-      websitePurpose: 'Webpage content analysis unavailable because the domain could not be resolved.',
-      confidence: 'Low' as const,
-      evidence: [
-        'Domain resolution failed (NXDOMAIN / DNS error)',
-        'No network endpoint accessible to retrieve public content',
-      ],
-      mainTopics: [],
-      callsToAction: [],
-      publicContactInfo: [],
-      primaryContentSummary: 'Webpage content analysis unavailable because the domain could not be resolved.',
-      potentiallySensitiveActions: [],
-      phishingIndicators: [],
-      contentIndicators: ['Domain non-existent or DNS lookup failed'],
-      brandImpersonation: false,
-      explanation: 'The domain could not be resolved at the time of analysis. This may indicate a nonexistent domain, DNS failure, expired configuration, or temporary availability issue. This alone does not prove malicious intent.',
-      recommendedActions: [
-        'Check that the address is spelled correctly.',
-        'Verify if the intended domain has moved to a new web address.',
-      ],
-      modelUsed: 'academic-expert-rules',
-      isAiGenerated: false,
-    };
-  }
+  // Deterministic Content-Grounded Semantic Engine
+  // Evaluates extracted title, meta description, headings, visible text, forms, and links
+  const title = (webpageContent.pageTitle || '').trim();
+  const desc = (webpageContent.metaDescription || '').trim();
+  const headings = webpageContent.headings || [];
+  const text = (webpageContent.textExcerpt || '').toLowerCase();
+  const allContentStr = `${title} ${desc} ${headings.join(' ')} ${text}`.toLowerCase();
+  const hostLower = hostname.toLowerCase();
 
-  const isGov = /\.gov(\.|$)/i.test(hostname);
-  const isEdu = /\.edu(\.|$)/i.test(hostname);
-  const isBank = /bank|hdfc|icici|sbi|chase|wellsfargo/i.test(hostname) || /netbanking|banking/i.test(url);
-  const isShop = /shop|store|cart|buy|checkout/i.test(url) || /ecommerce|shopping|store/i.test(webpageContent.pageTitle || '') || webpageContent.functionalElements?.hasShoppingCart;
-  const isSocial = /facebook|twitter|instagram|linkedin|tiktok|discord|reddit/i.test(hostname);
-  const isSearch = /google|bing|duckduckgo|yahoo|search/i.test(hostname) && webpageContent.functionalElements?.hasSearch;
-  const isTech = /github|gitlab|docker|npm|aws|azure|cloudflare|dev|api|saas|software/i.test(hostname);
+  const isSearchEngine =
+    /google\.|bing\.|duckduckgo\.|yahoo\.|search\./i.test(hostLower) ||
+    /search the world|search engine|web search|find what you need/i.test(allContentStr) ||
+    (webpageContent.functionalElements?.hasSearch && /search|query|find/i.test(title));
+
+  const isTechSoftware =
+    /github\.|gitlab\.|docker\.|npmjs\.|developer\.|dev\.|api\.|stack overflow|software|platform|open-source|repository|repositories|pull requests|sdk|cli\b|source code|git\b/i.test(allContentStr) ||
+    /github|gitlab|docker|npm|aws|azure|cloudflare/i.test(hostLower);
+
+  const isEcommerce =
+    webpageContent.functionalElements?.hasShoppingCart ||
+    webpageContent.functionalElements?.hasCheckout ||
+    /add to cart|checkout|shopping cart|price:|buy now|store|shop|products|apparel|electronics|item\(s\)|order summary|\$\d+|₹\d+|€\d+/i.test(allContentStr);
+
+  const isBanking =
+    /netbanking|online banking|bank\b|checking account|savings account|deposit|wire transfer|loan|mortgage|credit card account|account balance|sbi|hdfc|icici|chase|wellsfargo/i.test(allContentStr) ||
+    /bank|hdfc|icici|sbi|chase|wellsfargo/i.test(hostLower);
+
+  const isGov = /\.gov(\.|$)/i.test(hostLower) || /official portal|government of|ministry of|department of|public administration|citizen services/i.test(allContentStr);
+  const isEdu = /\.edu(\.|$)|ac\.in|\.edu\./i.test(hostLower) || /university|college|academic|faculty|admissions|curriculum|campus|students|professors|course catalog/i.test(allContentStr);
+  const isNews = /news|breaking news|journalism|daily|times|herald|post|gazette|editorial|headlines|reporters|press release/i.test(allContentStr);
+  const isSocial = /facebook|twitter|instagram|linkedin|tiktok|discord|reddit|threads/i.test(hostLower) || /social network|follow us|followers|community feed|share post|connections/i.test(allContentStr);
+  const isDocs = /documentation|api reference|getting started|developer guide|sdk guide|user manual|docs\./i.test(allContentStr) || hostLower.startsWith('docs.');
+  const isHealthcare = /hospital|clinic|medical|patient|doctor|healthcare|physician|medicine|health services|health clinic/i.test(allContentStr);
+  const isEntertainment = /streaming|watch movies|watch video|listen to music|stream music|gameplay|play online|arcade/i.test(allContentStr);
 
   let websiteType = 'General Web Resource';
-  let websitePurpose = 'Public web resource providing general online content.';
+  let websitePurpose = title ? `Public website providing information related to "${title}".` : `Public web resource on domain ${hostname}.`;
   const evidence: string[] = [];
 
-  if (isGov) {
+  if (isSearchEngine) {
+    websiteType = 'Search Engine';
+    websitePurpose = 'Web search engine and information retrieval service.';
+    evidence.push('Primary web search query interface detected');
+    if (title) evidence.push(`Page title: "${title}"`);
+    if (webpageContent.functionalElements?.hasSearch) evidence.push('Search inputs and query forms identified in markup');
+  } else if (isTechSoftware) {
+    websiteType = 'Technology / Software';
+    websitePurpose = title ? `Software platform or developer service: ${title}.` : 'Software platform, developer tools, cloud infrastructure, or code collaboration service.';
+    evidence.push('Developer tools, repositories, or technical software terminology detected in content');
+    if (title) evidence.push(`Page title: "${title}"`);
+    if (headings.length > 0) evidence.push(`Headings observed: ${headings.slice(0, 2).join(' | ')}`);
+  } else if (isEcommerce) {
+    websiteType = 'E-commerce';
+    websitePurpose = title ? `Online shopping storefront for ${title}.` : 'Online digital storefront for browsing and purchasing products or commercial services.';
+    evidence.push('Shopping cart, checkout flow, or purchasing elements detected');
+    if (title) evidence.push(`Page title: "${title}"`);
+    if (webpageContent.functionalElements?.hasCheckout) evidence.push('Checkout processing flow identified');
+  } else if (isBanking) {
+    websiteType = 'Banking / Financial';
+    websitePurpose = title ? `Online banking or financial portal for ${title}.` : 'Banking, financial management, or customer transaction services.';
+    evidence.push('Banking and financial account terminology identified');
+    if (webpageContent.hasLoginForm) evidence.push('Customer account authentication form present');
+    if (title) evidence.push(`Page title: "${title}"`);
+  } else if (isGov) {
     websiteType = 'Government / Official Portal';
-    websitePurpose = 'Official governmental agency or public administration portal.';
-    evidence.push('Official government TLD (.gov) verified');
-    evidence.push('Public administrative service content');
+    websitePurpose = title ? `Official governmental portal: ${title}.` : 'Official governmental agency or public administration portal.';
+    if (/\.gov(\.|$)/i.test(hostLower)) evidence.push('Official government TLD (.gov) verified');
+    evidence.push('Public administration and citizen services content');
+    if (title) evidence.push(`Page title: "${title}"`);
   } else if (isEdu) {
     websiteType = 'Education / University';
-    websitePurpose = 'Accredited university or educational institution website.';
-    evidence.push('Educational institution domain (.edu) identified');
-    evidence.push('Academic campus information and resources');
-  } else if (isBank) {
-    websiteType = 'Banking / Financial';
-    websitePurpose = 'Online banking, financial management, or payment services.';
-    evidence.push('Financial and banking terminology identified');
-    evidence.push('Customer account authentication functionality');
-  } else if (isShop) {
-    websiteType = 'E-commerce';
-    websitePurpose = 'Online shopping, digital storefront, and product purchasing.';
-    evidence.push('Product listings and catalog terminology detected');
-    evidence.push('Shopping cart and checkout functionality detected');
+    websitePurpose = title ? `Academic institution: ${title}.` : 'Accredited university, college, or educational institution portal.';
+    if (/\.edu(\.|$)/i.test(hostLower)) evidence.push('Educational institution domain (.edu) identified');
+    evidence.push('Academic campus, admissions, or faculty information detected');
+    if (title) evidence.push(`Page title: "${title}"`);
+  } else if (isNews) {
+    websiteType = 'News / Media';
+    websitePurpose = title ? `News publication: ${title}.` : 'News reporting, journalism, and editorial media publication.';
+    evidence.push('Journalism, headlines, and article publication sections detected');
+    if (title) evidence.push(`Page title: "${title}"`);
+  } else if (isDocs) {
+    websiteType = 'Documentation';
+    websitePurpose = title ? `Technical documentation: ${title}.` : 'Technical documentation, API references, or software guidance manuals.';
+    evidence.push('Documentation structure, guides, and technical reference terms detected');
+    if (title) evidence.push(`Page title: "${title}"`);
   } else if (isSocial) {
     websiteType = 'Social Media';
-    websitePurpose = 'Social networking platform for user interaction and community sharing.';
-    evidence.push('Social networking platform domain');
-    evidence.push('Community profile and feed interactions');
-  } else if (isSearch) {
-    websiteType = 'Search Engine';
-    websitePurpose = 'Web search engine and index navigation service.';
-    evidence.push('Primary web search query interface detected');
-  } else if (isTech) {
-    websiteType = 'Technology / Software';
-    websitePurpose = 'Software platform, developer tools, cloud infrastructure, or technology service.';
-    evidence.push('Technology documentation and platform tools');
+    websitePurpose = title ? `Social platform: ${title}.` : 'Social networking platform for user interaction and community sharing.';
+    evidence.push('Social networking community elements and profile interactions identified');
+    if (title) evidence.push(`Page title: "${title}"`);
+  } else if (isHealthcare) {
+    websiteType = 'Healthcare';
+    websitePurpose = title ? `Healthcare provider: ${title}.` : 'Healthcare services, medical information, or clinical care portal.';
+    evidence.push('Medical and healthcare clinical terminology identified');
+    if (title) evidence.push(`Page title: "${title}"`);
+  } else if (isEntertainment) {
+    websiteType = 'Entertainment / Streaming';
+    websitePurpose = title ? `Media service: ${title}.` : 'Media streaming, video entertainment, or digital audio content.';
+    evidence.push('Media streaming or entertainment catalog features identified');
+    if (title) evidence.push(`Page title: "${title}"`);
   } else if (webpageContent.hasLoginForm) {
     websiteType = 'Authentication / Login';
-    websitePurpose = 'Account sign-in gateway and user identity verification.';
-    evidence.push('Credential entry form (username/password) detected');
-    evidence.push('Authentication gateway elements identified');
+    websitePurpose = title ? `Authentication portal: ${title}.` : 'Account sign-in gateway and user identity verification.';
+    evidence.push('Credential entry form (username/password) detected in markup');
+    if (title) evidence.push(`Page title: "${title}"`);
   } else {
     websiteType = 'General Web Resource';
-    websitePurpose = webpageContent.pageTitle ? `Website titled "${webpageContent.pageTitle}".` : `Public web domain (${hostname}).`;
-    evidence.push('Public webpage structure and metadata analyzed');
+    websitePurpose = desc ? desc : title ? `Website titled "${title}".` : `Public web domain (${hostname}).`;
+    if (title) evidence.push(`Page title: "${title}"`);
+    if (desc) evidence.push(`Meta description: "${desc.substring(0, 100)}..."`);
+    evidence.push('Public webpage markup and text excerpt analyzed');
   }
 
   const phishingIndicators: Array<{ indicator: string; evidence: string; severity: 'low' | 'medium' | 'high' | 'critical' }> = [];
@@ -1134,7 +1318,7 @@ Return strict JSON format:
   if (brandResult.isImpersonatingBrand) {
     phishingIndicators.push({
       indicator: 'Potential Brand Impersonation',
-      evidence: brandResult.impersonationEvidence || 'Domain appears to impersonate a known brand.',
+      evidence: brandResult.impersonationEvidence || `Domain appears to mimic ${brandResult.suspectedBrand}.`,
       severity: brandResult.severity || 'high',
     });
   }
@@ -1142,7 +1326,7 @@ Return strict JSON format:
   if (webpageContent.hasLoginForm && !url.startsWith('https://')) {
     phishingIndicators.push({
       indicator: 'Insecure Credential Transmission',
-      evidence: 'Authentication / login form hosted over unencrypted HTTP.',
+      evidence: 'Authentication / login form hosted over unencrypted HTTP (port 80).',
       severity: 'critical',
     });
   }
@@ -1155,15 +1339,31 @@ Return strict JSON format:
     });
   }
 
+  const mainTopics: string[] = [];
+  if (title) mainTopics.push(title.length > 50 ? title.substring(0, 50) + '...' : title);
+  for (const h of headings) {
+    if (mainTopics.length < 4 && !mainTopics.includes(h)) mainTopics.push(h);
+  }
+
+  const callsToAction: string[] = [...(webpageContent.functionalElements?.detectedList?.slice(0, 3) || [])];
+
+  const primaryContentSummary = desc
+    ? desc
+    : text
+    ? text.substring(0, 220) + '...'
+    : title
+    ? `Page title: "${title}"`
+    : 'Public webpage content evaluated.';
+
   return {
     websiteType,
     websitePurpose,
-    confidence: reachability.isReachable ? ('High' as const) : ('Medium' as const),
+    confidence: 'High' as const,
     evidence,
-    mainTopics: webpageContent.headings?.slice(0, 3) || [],
-    callsToAction: webpageContent.functionalElements?.detectedList?.slice(0, 3) || [],
+    mainTopics,
+    callsToAction,
     publicContactInfo: [],
-    primaryContentSummary: webpageContent.metaDescription || webpageContent.textExcerpt?.substring(0, 200) || 'Public webpage.',
+    primaryContentSummary,
     potentiallySensitiveActions: webpageContent.sensitiveFieldsDetected || [],
     phishingIndicators,
     contentIndicators: [
@@ -1174,14 +1374,14 @@ Return strict JSON format:
     explanation: brandResult.isImpersonatingBrand
       ? `High-risk indicators detected: domain resembles ${brandResult.suspectedBrand} but is not hosted on an official domain.`
       : reachability.isReachable
-      ? `Website responded with HTTP ${reachability.httpStatusCode || 200}. Technical indicators evaluated across DNS, TLS, and content structure.`
-      : `Website could not be reached over the network (${reachability.classification}). Structural heuristics analyzed.`,
+      ? `Website responded with HTTP ${reachability.httpStatusCode || 200}. Technical indicators evaluated across DNS, TLS, and retrieved webpage structure.`
+      : `Website could not be reached over the network (${reachability.classification}).`,
     recommendedActions: [
-      'Carefully check the domain in your browser address bar before interacting.',
-      'Never input passwords, OTPs, or financial details on links received via unsolicited messages.',
-      'If in doubt, navigate to the official service directly using search or stored bookmarks.',
+      'Verify the address bar domain spelling carefully before entering sensitive information.',
+      'Ensure HTTPS encryption is active and bookmark verified services.',
+      'Never input passwords or OTPs on unverified links received via SMS or chat.',
     ],
-    modelUsed: 'academic-expert-rules',
+    modelUsed: 'deterministic-content-engine',
     isAiGenerated: false,
   };
 }
@@ -1884,6 +2084,7 @@ app.post('/api/scan-url', rateLimitMiddleware, async (req, res) => {
         callsToAction: aiAnalysis.callsToAction || [],
         publicContactInfo: aiAnalysis.publicContactInfo || [],
         textExcerpt: webpageContent.textExcerpt,
+        linksInfo: webpageContent.linksInfo,
         functionalElements: webpageContent.functionalElements || {
           hasLogin: false,
           hasRegistration: false,
@@ -1899,6 +2100,41 @@ app.post('/api/scan-url', rateLimitMiddleware, async (req, res) => {
           detectedList: [],
         },
         sensitiveRequests: webpageContent.sensitiveFieldsDetected || [],
+      },
+      technicalEvidence: {
+        targetUrl: trimmedInput,
+        normalizedUrl,
+        dnsIpAddresses: dnsAnalysis.resolvedIps || [],
+        dnsStatus: dnsAnalysis.dnsStatus,
+        httpStatusCode: reachability.httpStatusCode,
+        httpResponseTimeMs: reachability.responseTimeMs,
+        finalResolvedUrl: reachability.finalUrl || normalizedUrl,
+        pageTitle: webpageContent.pageTitle,
+        metaDescription: webpageContent.metaDescription,
+        contentLengthBytes: webpageContent.contentLengthBytes || (webpageContent.textExcerpt ? webpageContent.textExcerpt.length : 0),
+        language: webpageContent.language,
+        headingsList: webpageContent.headings || [],
+        formsCount: webpageContent.formsDetected?.length || 0,
+        linksCount: webpageContent.linksInfo?.totalLinksCount || 0,
+        securityHeadersPresent: securityHeaders.headers.filter((h: any) => h.status === 'present').map((h: any) => h.name),
+        securityHeadersMissing: securityHeaders.headers.filter((h: any) => h.status === 'missing').map((h: any) => h.name),
+        threatIntelligenceStatus: reputationReport.status,
+        threatIntelligenceProvider: reputationReport.provider,
+        aiClassificationSource: aiAnalysis.isAiGenerated ? 'Gemini 3.8 Flash Semantic Engine' : 'Deterministic Content Evidence Engine',
+        extractedAt: new Date().toISOString(),
+      },
+      dataSourceLabels: {
+        urlIdentification: 'RFC 3986 URL PARSER',
+        domainExistence: 'SYSTEM DNS RESOLVER (A/AAAA/MX)',
+        websiteClassification: aiAnalysis.isAiGenerated ? 'RETRIEVED WEBPAGE + GEMINI AI' : 'RETRIEVED WEBPAGE EVIDENCE RULES',
+        publicInformation: 'LIVE WEBPAGE HTML PARSER',
+        reachability: 'LIVE HTTP CLIENT & TCP SOCKET',
+        redirects: 'HTTP 3XX LOCATION HEADER TRACER',
+        tlsSecurity: 'TLS SOCKET & X.509 CERTIFICATE',
+        securityHeaders: 'HTTP RESPONSE HEADERS',
+        heuristics: 'DETERMINISTIC SECURITY HEURISTIC ENGINE',
+        threatIntelligence: 'CYBERSAFE THREAT REPUTATION FEEDS',
+        overallRisk: 'TRANSPARENT 8-PILLAR RISK ENGINE',
       },
       phishingIndicatorsList,
       transparentWeights: scoring.weights,

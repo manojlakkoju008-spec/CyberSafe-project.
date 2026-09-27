@@ -458,6 +458,36 @@ export interface DetectedFunctionalElements {
   detectedList: string[];
 }
 
+export interface LinkExtractionInfo {
+  totalLinksCount: number;
+  internalLinksCount: number;
+  externalLinksCount: number;
+  sampleLinks: { text: string; href: string; isExternal: boolean }[];
+}
+
+export interface TechnicalEvidenceData {
+  targetUrl: string;
+  normalizedUrl: string;
+  dnsIpAddresses: string[];
+  dnsStatus: string;
+  httpStatusCode?: number;
+  httpResponseTimeMs?: number;
+  finalResolvedUrl?: string;
+  pageTitle?: string;
+  metaDescription?: string;
+  contentLengthBytes?: number;
+  language?: string;
+  headingsList: string[];
+  formsCount: number;
+  linksCount: number;
+  securityHeadersPresent: string[];
+  securityHeadersMissing: string[];
+  threatIntelligenceStatus: string;
+  threatIntelligenceProvider: string;
+  aiClassificationSource: string;
+  extractedAt: string;
+}
+
 export interface WebsitePublicInformation {
   pageTitle?: string;
   metaDescription?: string;
@@ -469,6 +499,7 @@ export interface WebsitePublicInformation {
   publicContactInfo?: string[];
   callsToAction?: string[];
   textExcerpt?: string;
+  linksInfo?: LinkExtractionInfo;
   functionalElements: DetectedFunctionalElements;
   sensitiveRequests: string[];
 }
@@ -554,6 +585,8 @@ export interface UrlScanAssessment {
   transparentWeights?: TransparentRiskWeightsBreakdown;
   websiteClassification?: WebsiteClassificationResult;
   publicInformation?: WebsitePublicInformation;
+  technicalEvidence?: TechnicalEvidenceData;
+  dataSourceLabels?: Record<string, string>;
   verifiedFacts?: string[];
   securityObservations?: string[];
   executiveSummary?: string;
