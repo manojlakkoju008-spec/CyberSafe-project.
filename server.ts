@@ -505,6 +505,7 @@ async function checkHttpAndContent(
       hasPasswordFields: false,
       hasPaymentFields: false,
       hasPiiFields: false,
+      hasLimitedContent: false,
       sensitiveFieldsDetected: [] as string[],
       externalScriptsCount: 0,
       functionalElements: {
@@ -887,6 +888,9 @@ async function checkHttpAndContent(
             sampleLinks,
           };
           result.webpageContent.contentLengthBytes = rawText.length;
+          const isLimited = (cleanText.length < 350 && totalLinks <= 3) || 
+            /this domain is for use in illustrative examples|this domain is for use in documentation|example domain|under construction|default web page|coming soon|site is under maintenance/i.test(cleanText);
+          result.webpageContent.hasLimitedContent = isLimited;
 
           const scriptTags = truncatedHtml.matchAll(/<script[^>]*src=["']([^"']+)["']/gi);
           let scriptCount = 0;
@@ -2112,6 +2116,12 @@ app.post('/api/scan-url', rateLimitMiddleware, async (req, res) => {
       // Verification & Risk Scores
       verificationStatus,
       verificationStatusText,
+      websiteExists: dnsAnalysis.domainExistenceStatus === 'exists',
+      websiteReachable: reachability.isReachable,
+      contentAvailable: webpageContent.isContentFetched && !webpageContent.hasLimitedContent,
+      contentStatus: webpageContent.hasLimitedContent ? ('LIMITED' as const) : webpageContent.isContentFetched ? ('NORMAL' as const) : ('UNAVAILABLE' as const),
+      securityPosture: scoring.normalizedScore >= 75 ? 'CRITICAL RISK' : scoring.normalizedScore >= 50 ? 'HIGH RISK' : scoring.normalizedScore >= 25 ? 'MODERATE RISK' : 'LOW RISK',
+      threatStatus: reputationReport.status,
       structuralScore: Math.round((urlAnomaliesPoints / 20) * 100),
       riskScore: scoring.normalizedScore,
       riskLevel: scoring.riskLevel,

@@ -557,8 +557,14 @@ export interface UrlScanAssessment {
   urlLength: number;
   hostnameLength: number;
   // Layered Risk Assessment
-  verificationStatus?: 'VERIFIED_LIVE' | 'UNVERIFIED_NONEXISTENT' | 'UNVERIFIED_UNREACHABLE' | 'LIMITED_CONTENT' | 'ACCESS_RESTRICTED' | 'INVALID_SYNTAX';
+  verificationStatus?: 'VERIFIED' | 'VERIFIED_LIMITED_CONTENT' | 'DOMAIN_NOT_FOUND' | 'WEBSITE_UNREACHABLE' | 'ACCESS_RESTRICTED' | 'INVALID_URL' | 'VERIFIED_LIVE' | 'UNVERIFIED_NONEXISTENT' | 'UNVERIFIED_UNREACHABLE' | 'LIMITED_CONTENT' | 'INVALID_SYNTAX';
   verificationStatusText?: string;
+  websiteExists?: boolean;
+  websiteReachable?: boolean;
+  contentAvailable?: boolean;
+  contentStatus?: 'NORMAL' | 'LIMITED' | 'UNAVAILABLE';
+  securityPosture?: string;
+  threatStatus?: string;
   structuralScore: number; // 0 - 100
   riskScore: number; // Final Combined 0 - 100
   riskLevel: 'Low Risk' | 'Medium Risk' | 'High Risk';
